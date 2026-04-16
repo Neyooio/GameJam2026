@@ -18,6 +18,15 @@ export class MainMenuScene extends Phaser.Scene {
   create() {
     const { width, height } = this.scale;
 
+    const menuBgm = this.sound.get("menuBgm");
+    if (menuBgm) {
+      if (!menuBgm.isPlaying) {
+        menuBgm.play({ loop: true, volume: 0.32 });
+      }
+    } else {
+      this.sound.play("menuBgm", { loop: true, volume: 0.32 });
+    }
+
     this.backgroundImages = this.backgroundKeys.map((key, index) => {
       const image = this.add.image(width * 0.5, height * 0.5, key).setAlpha(index === 0 ? 1 : 0);
       this.fitImageToCamera(image);
