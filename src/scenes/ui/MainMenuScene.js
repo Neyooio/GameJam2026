@@ -13,6 +13,9 @@ export class MainMenuScene extends Phaser.Scene {
     this.subtleFlickerLoop = null;
     this.nextSwitchEvent = null;
     this.preSwitchActive = false;
+    this.backgroundDriftStates = [];
+    this.sharedShakeTime = 0;
+    this.sharedShakeSeed = Math.random() * 1000;
   }
 
   create() {
@@ -33,6 +36,8 @@ export class MainMenuScene extends Phaser.Scene {
       return image;
     });
 
+    this.startBackgroundMotion();
+
     this.addOverlayUI();
 
     this.updateHumanVisualState();
@@ -44,8 +49,60 @@ export class MainMenuScene extends Phaser.Scene {
         this.nextSwitchEvent.remove(false);
         this.nextSwitchEvent = null;
       }
+      this.tweens.killTweensOf(this.backgroundDriftStates);
+      this.backgroundDriftStates = [];
       this.stopSubtleFlickerLoop();
       this.scale.off("resize", this.handleResize, this);
+    });
+  }
+
+  update(_, delta) {
+    if (!this.backgroundImages.length) {
+      return;
+    }
+
+    this.sharedShakeTime += delta / 1000;
+
+    const primaryWave = Math.sin(this.sharedShakeTime * 2.4 + this.sharedShakeSeed);
+    const secondaryWave = Math.sin(this.sharedShakeTime * 5.1 + this.sharedShakeSeed * 0.63);
+    const sharedShakeX = primaryWave * 0.9 + secondaryWave * 0.35;
+    const sharedShakeY = Math.cos(this.sharedShakeTime * 2.2 + this.sharedShakeSeed * 0.47) * 0.7;
+
+    this.backgroundImages.forEach((image, index) => {
+      const drift = this.backgroundDriftStates[index];
+      const driftX = drift ? drift.x : 0;
+      const driftY = drift ? drift.y : 0;
+
+      image.setPosition(
+        this.scale.width * 0.5 + sharedShakeX + driftX,
+        this.scale.height * 0.5 + sharedShakeY + driftY,
+      );
+    });
+  }
+
+  startBackgroundMotion() {
+    this.backgroundDriftStates = this.backgroundImages.map(() => ({ x: 0, y: 0 }));
+
+    this.backgroundDriftStates.forEach((state, index) => {
+      this.createBackgroundDriftTween(state, index);
+    });
+  }
+
+  createBackgroundDriftTween(state, index) {
+    const maxDriftX = 7;
+    const maxDriftY = 5;
+    const targetX = Phaser.Math.FloatBetween(-maxDriftX, maxDriftX) + (index === 0 ? -1.5 : 1.5);
+    const targetY = Phaser.Math.FloatBetween(-maxDriftY, maxDriftY);
+
+    this.tweens.add({
+      targets: state,
+      x: targetX,
+      y: targetY,
+      duration: Phaser.Math.Between(2600, 3800),
+      ease: "Sine.easeInOut",
+      onComplete: () => {
+        this.createBackgroundDriftTween(state, index);
+      },
     });
   }
 
@@ -311,8 +368,9 @@ export class MainMenuScene extends Phaser.Scene {
 
   fitImageToCamera(image) {
     const source = image.texture.getSourceImage();
-    const scaleX = this.scale.width / source.width;
-    const scaleY = this.scale.height / source.height;
+    const overscanPx = 24;
+    const scaleX = (this.scale.width + overscanPx * 2) / source.width;
+    const scaleY = (this.scale.height + overscanPx * 2) / source.height;
     const scale = Math.max(scaleX, scaleY);
 
     image.setPosition(this.scale.width * 0.5, this.scale.height * 0.5);
@@ -326,7 +384,6 @@ export class MainMenuScene extends Phaser.Scene {
 
     this.backgroundImages.forEach((image) => {
       this.fitImageToCamera(image);
-      image.setPosition(width * 0.5, height * 0.5);
     });
 
     const centerX = width * 0.82;

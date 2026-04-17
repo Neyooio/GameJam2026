@@ -11,6 +11,7 @@ export class OpeningScene extends Phaser.Scene {
     this.currentLineIndex = 0;
     this.currentIndex = 0;
     this.storyText = null;
+    this.bloodText = null;
     this.cursorText = null;
     this.cursorBlinkTween = null;
     this.glitchBars = null;
@@ -47,13 +48,25 @@ export class OpeningScene extends Phaser.Scene {
       .setAlpha(0.92)
       .setDepth(12);
 
+    this.bloodText = this.add
+      .text(width * 0.5, height * 0.5, "", {
+        fontFamily: "Yoster",
+        fontSize: "22px",
+        color: "#b20f16",
+        align: "center",
+        wordWrap: { width: width * 0.8, useAdvancedWrap: true },
+      })
+      .setOrigin(0, 0.5)
+      .setAlpha(0)
+      .setDepth(13);
+
     this.cursorText = this.add
       .text(width * 0.5, height * 0.5, "_", {
         fontFamily: "Yoster",
         fontSize: "26px",
         color: "#cfd6dd",
       })
-      .setOrigin(0, 0.5)
+      .setOrigin(0.5, 0)
       .setAlpha(0)
       .setDepth(12);
 
@@ -133,6 +146,10 @@ export class OpeningScene extends Phaser.Scene {
   beginTyping() {
     this.currentIndex = 0;
     this.storyText.setText("");
+    this.storyText.setColor("#f2f5f8");
+    this.bloodText.setText("");
+    this.bloodText.setAlpha(0);
+    this.updateCursorPosition();
 
     if (this.currentLineIndex === 0) {
       this.startFirstLineMusic();
@@ -166,6 +183,7 @@ export class OpeningScene extends Phaser.Scene {
     const char = activeLine[this.currentIndex];
     const nextString = activeLine.slice(0, this.currentIndex + 1);
     this.storyText.setText(nextString);
+    this.updateCursorPosition();
 
     const delay = this.getTypingDelay(char);
     this.applyTypingCadence(char, delay);
@@ -187,7 +205,54 @@ export class OpeningScene extends Phaser.Scene {
       return;
     }
 
-    this.finishOpening();
+    this.runFinalLineBloodReveal();
+  }
+
+  runFinalLineBloodReveal() {
+    const finalLine = this.targetLines[this.currentLineIndex] || "";
+
+    this.storyText.setText(finalLine);
+    this.storyText.setAlpha(0.92);
+    this.bloodText.setText("");
+
+    const measure = this.add.text(0, 0, finalLine, {
+      fontFamily: "Yoster",
+      fontSize: "22px",
+      color: "#f2f5f8",
+    });
+    const leftX = this.storyText.x - measure.width * 0.5;
+    measure.destroy();
+
+    this.bloodText.setPosition(leftX, this.storyText.y);
+    this.bloodText.setAlpha(0.98);
+
+    this.cursorText.setAlpha(0);
+
+    this.time.delayedCall(520, () => {
+      let revealCount = 0;
+      const stepMs = 130;
+
+      this.time.addEvent({
+        delay: stepMs,
+        repeat: Math.max(0, finalLine.length - 1),
+        callback: () => {
+          revealCount += 1;
+          this.bloodText.setText(finalLine.slice(0, revealCount));
+
+          this.tweens.add({
+            targets: this.bloodText,
+            alpha: 1,
+            duration: 50,
+            ease: "Linear",
+          });
+        },
+      });
+
+      const totalFlowMs = Math.max(600, stepMs * finalLine.length + 300);
+      this.time.delayedCall(totalFlowMs, () => {
+        this.finishOpening();
+      });
+    });
   }
 
   startCicadaUnderSecondLine() {
@@ -346,7 +411,7 @@ export class OpeningScene extends Phaser.Scene {
 
     this.time.delayedCall(2200, () => {
       this.tweens.add({
-        targets: [this.storyText, this.cursorText],
+        targets: [this.storyText, this.bloodText, this.cursorText],
         alpha: 0,
         duration: 420,
         ease: "Sine.easeInOut",
@@ -416,6 +481,17 @@ export class OpeningScene extends Phaser.Scene {
 
     this.typingLoop.setRate(1.0);
     this.typingLoop.setVolume(normalVolume);
+  }
+
+  updateCursorPosition() {
+    if (!this.storyText || !this.cursorText) {
+      return;
+    }
+
+    const textBounds = this.storyText.getBounds();
+    const cursorX = this.storyText.x;
+    const cursorY = textBounds.bottom + 6;
+    this.cursorText.setPosition(cursorX, cursorY);
   }
 
   startTypingSound() {

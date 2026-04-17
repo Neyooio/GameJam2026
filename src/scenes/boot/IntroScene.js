@@ -81,32 +81,34 @@ export class IntroScene extends Phaser.Scene {
 
   playDustFadeOut(title, onComplete) {
     const dustPieces = [];
-    const pieceCount = 42;
-    const spreadX = 250;
-    const spreadY = 36;
+    const pieceCount = 72;
+    const spreadX = 280;
+    const spreadY = 44;
 
     for (let i = 0; i < pieceCount; i += 1) {
+      const radius = Phaser.Math.FloatBetween(1.2, 3.4);
       const dust = this.add
-        .rectangle(
+        .circle(
           title.x + Phaser.Math.Between(-spreadX, spreadX),
           title.y + Phaser.Math.Between(-spreadY, spreadY),
-          Phaser.Math.Between(1, 3),
-          Phaser.Math.Between(1, 3),
-          0xe8eef7,
-          Phaser.Math.FloatBetween(0.15, 0.42),
+          radius,
+          0xf4f8ff,
+          Phaser.Math.FloatBetween(0.3, 0.68),
         )
+        .setScale(Phaser.Math.FloatBetween(0.8, 1.15))
         .setDepth(title.depth + 1);
 
       dustPieces.push(dust);
 
       this.tweens.add({
         targets: dust,
-        x: dust.x + Phaser.Math.Between(-24, 24),
-        y: dust.y - Phaser.Math.Between(20, 54),
+        x: dust.x + Phaser.Math.Between(-30, 30),
+        y: dust.y - Phaser.Math.Between(32, 72),
+        scale: Phaser.Math.FloatBetween(0.35, 0.65),
         alpha: 0,
-        duration: Phaser.Math.Between(540, 980),
-        delay: Phaser.Math.Between(0, 180),
-        ease: "Sine.easeOut",
+        duration: Phaser.Math.Between(900, 1450),
+        delay: Phaser.Math.Between(0, 260),
+        ease: "Cubic.easeOut",
         onComplete: () => {
           dust.destroy();
         },
@@ -116,10 +118,10 @@ export class IntroScene extends Phaser.Scene {
     this.tweens.add({
       targets: title,
       alpha: 0,
-      scale: 1.04,
-      y: title.y - 6,
-      duration: 920,
-      ease: "Cubic.easeOut",
+      scale: 1.05,
+      y: title.y - 8,
+      duration: 1100,
+      ease: "Sine.easeInOut",
       onComplete: () => {
         dustPieces.forEach((piece) => {
           if (piece && piece.active) {
