@@ -5,10 +5,10 @@ export class MainMenuScene extends Phaser.Scene {
     this.backgroundImages = [];
     this.activeIndex = 0;
     this.isTransitioning = false;
-    this.panel = null;
-    this.titleText = null;
     this.playButton = null;
+    this.playButtonShadow = null;
     this.playText = null;
+    this.playZone = null;
     this.staticLines = null;
     this.subtleFlickerLoop = null;
     this.nextSwitchEvent = null;
@@ -52,44 +52,66 @@ export class MainMenuScene extends Phaser.Scene {
   addOverlayUI() {
     const { width, height } = this.scale;
 
-    this.panel = this.add.rectangle(width * 0.5, height * 0.76, width * 0.48, 92, 0x041116, 0.63);
-    this.panel.setStrokeStyle(2, 0x76d9ff, 0.7);
+    // Colors matching the gritty environment
+    const panelFillColor = 0x2a211c;
+    const panelStrokeColor = 0x1f1612;
+    const buttonFillColor = 0x3d3029;
+    const accentColor = 0xf5b942;
+    const textColor = "#f5e6d3";
+    const textHoverColor = "#2a211c";
 
-    this.titleText = this.add
-      .text(width * 0.5, height * 0.72, "MAIN MENU", {
-        fontFamily: "Yoster",
-        fontSize: "16px",
-        color: "#c8f4ff",
-      })
-      .setOrigin(0.5);
+    const centerX = width * 0.82;
+    const centerY = height * 0.50; // Dead center vertically
 
-    this.playButton = this.add.rectangle(width * 0.5, height * 0.79, 140, 34, 0x0d2e3c, 0.85);
-    this.playButton.setStrokeStyle(2, 0xa5ecff, 0.95);
-    this.playButton.setInteractive({ useHandCursor: true });
+    // Button now acts as its own embedded element directly on the wall
+    this.playButtonShadow = this.add.rectangle(centerX - 2, centerY - 2, 140, 34, 0x000000, 0.6).setDepth(10);
+    this.playButton = this.add.rectangle(centerX, centerY, 140, 34, buttonFillColor, 0.9).setDepth(10);
+    this.playButton.setStrokeStyle(2, accentColor, 1);
 
     this.playText = this.add
-      .text(width * 0.5, height * 0.79, "PLAY", {
+      .text(centerX, centerY, "PLAY", {
         fontFamily: "Yoster",
         fontSize: "16px",
-        color: "#ebfbff",
+        color: textColor,
+        shadow: { fill: true, offsetX: 1, offsetY: 1, color: "#000000", blur: 0 },
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setDepth(10);
 
-    this.playButton.on("pointerover", () => {
-      this.playButton.setFillStyle(0x134458, 0.92);
-      this.playText.setColor("#ffffff");
+    // Invisible, stationary hit box to prevent hover-jitter loops
+    // using a rectangle instead of a zone ensures stable hit-area configuration on all Phaser versions
+    this.playZone = this.add.rectangle(centerX, centerY, 140, 34, 0x000000, 0)
+      .setDepth(20)
+      .setInteractive({ useHandCursor: true });
+
+    this.playZone.on("pointerover", () => {
+      // Check cache first to avoid crashes if audio file is missing
+      if (this.cache.audio.exists("uiHoverSfx")) {
+        this.sound.play("uiHoverSfx", { volume: 0.5 });
+      }
+      this.playButton.setFillStyle(accentColor, 1);
+      this.playText.setColor(textHoverColor);
+      this.playText.setShadowOffset(0, 0); // Remove shadow when hovering for flat inset look
+      // Press slightly IN when hovering
+      this.playButton.setPosition(centerX - 1, centerY - 1);
+      this.playText.setPosition(centerX - 1, centerY - 1);
     });
 
-    this.playButton.on("pointerout", () => {
-      this.playButton.setFillStyle(0x0d2e3c, 0.85);
-      this.playText.setColor("#ebfbff");
+    this.playZone.on("pointerout", () => {
+      this.playButton.setFillStyle(buttonFillColor, 0.9);
+      this.playText.setColor(textColor);
+      this.playText.setShadowOffset(1, 1);
+      this.playButton.setPosition(centerX, centerY);
+      this.playText.setPosition(centerX, centerY);
     });
 
-    this.playButton.on("pointerdown", (pointer) => {
+    this.playZone.on("pointerdown", (pointer) => {
       if (!pointer.leftButtonDown()) {
         return;
       }
-
+      if (this.cache.audio.exists("uiClickSfx")) {
+        this.sound.play("uiClickSfx", { volume: 0.6 });
+      }
       this.cameras.main.flash(160, 178, 246, 255, true);
     });
   }
@@ -136,7 +158,7 @@ export class MainMenuScene extends Phaser.Scene {
       this.nextSwitchEvent.remove(false);
     }
 
-    this.nextSwitchEvent = this.time.delayedCall(10000, () => {
+    this.nextSwitchEvent = this.time.delayedCall(20000, () => {
       this.beginSwitchSequence();
     });
   }
@@ -195,7 +217,7 @@ export class MainMenuScene extends Phaser.Scene {
           return;
         }
 
-        humanImage.setAlpha(0.96);
+        humanImage.setAlpha(0.965);
 
         this.tweens.add({
           targets: humanImage,
@@ -203,24 +225,6 @@ export class MainMenuScene extends Phaser.Scene {
           duration: 220,
           ease: "Linear",
         });
-
-        if (Phaser.Math.Between(0, 100) < 30) {
-          this.renderStaticLines(0.06);
-          if (this.staticLines) {
-            this.staticLines.setAlpha(0.12);
-            this.tweens.add({
-              targets: this.staticLines,
-              alpha: 0,
-              duration: 150,
-              ease: "Linear",
-              onComplete: () => {
-                if (this.staticLines && !this.preSwitchActive) {
-                  this.staticLines.setVisible(false);
-                }
-              },
-            });
-          }
-        }
       },
     });
   }
@@ -325,21 +329,23 @@ export class MainMenuScene extends Phaser.Scene {
       image.setPosition(width * 0.5, height * 0.5);
     });
 
-    if (this.panel) {
-      this.panel.setPosition(width * 0.5, height * 0.76);
-      this.panel.setSize(width * 0.48, 92);
-    }
+    const centerX = width * 0.82;
+    const centerY = height * 0.50;
 
-    if (this.titleText) {
-      this.titleText.setPosition(width * 0.5, height * 0.72);
+    if (this.playButtonShadow) {
+      this.playButtonShadow.setPosition(centerX - 2, centerY - 2);
     }
 
     if (this.playButton) {
-      this.playButton.setPosition(width * 0.5, height * 0.79);
+      this.playButton.setPosition(centerX, centerY);
     }
 
     if (this.playText) {
-      this.playText.setPosition(width * 0.5, height * 0.79);
+      this.playText.setPosition(centerX, centerY);
+    }
+
+    if (this.playZone) {
+      this.playZone.setPosition(centerX, centerY);
     }
 
     if (this.staticLines && this.backgroundKeys[this.activeIndex] === "bgHuman" && this.preSwitchActive) {

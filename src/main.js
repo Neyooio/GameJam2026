@@ -9,6 +9,7 @@ const config = {
   width: 960,
   height: 540,
   backgroundColor: "#0f151a",
+  pixelArt: true,
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
