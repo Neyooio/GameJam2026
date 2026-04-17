@@ -2,8 +2,11 @@ export class OpeningScene extends Phaser.Scene {
   constructor() {
     super("OpeningScene");
     this.targetLines = [
-      "Summer, 2026.",
-      "The cicadas' sound only seems to make the summer heat feel heavier.",
+      "SUMMER, 2026.",
+      "THE CICADAS' SOUND ONLY SEEMS TO MAKE THE SUMMER HEAT FEEL HEAVIER.",
+      "UH, IF ONLY I HAD MY SODA TO QUENCH MY THIRST.",
+      "BUT.",
+      "I DIED...",
     ];
     this.currentLineIndex = 0;
     this.currentIndex = 0;
@@ -15,6 +18,10 @@ export class OpeningScene extends Phaser.Scene {
     this.typingLoop = null;
     this.cicadaLoop = null;
     this.openingStaticLoop = null;
+    this.firstLineMusic = null;
+    this.flatlineClip = null;
+    this.flatlineFadeEvent = null;
+    this.flatlineStopEvent = null;
   }
 
   create() {
@@ -127,8 +134,17 @@ export class OpeningScene extends Phaser.Scene {
     this.currentIndex = 0;
     this.storyText.setText("");
 
+    if (this.currentLineIndex === 0) {
+      this.startFirstLineMusic();
+    }
+
     if (this.currentLineIndex === 1) {
       this.startCicadaUnderSecondLine();
+    }
+
+    if (this.currentLineIndex === 4) {
+      this.fadeOutFirstLineMusic();
+      this.playFlatlineSegment();
     }
 
     this.startTypingSound();
@@ -162,9 +178,10 @@ export class OpeningScene extends Phaser.Scene {
   handleLineComplete() {
     this.stopTypingSound();
 
-    if (this.currentLineIndex === 0) {
-      this.time.delayedCall(700, () => {
-        this.currentLineIndex = 1;
+    if (this.currentLineIndex < this.targetLines.length - 1) {
+      const interLinePause = this.currentLineIndex === 0 ? 3000 : 1800;
+      this.time.delayedCall(interLinePause, () => {
+        this.currentLineIndex += 1;
         this.beginTyping();
       });
       return;
@@ -201,6 +218,91 @@ export class OpeningScene extends Phaser.Scene {
     });
   }
 
+  startFirstLineMusic() {
+    if (!this.firstLineMusic) {
+      this.firstLineMusic = this.sound.add("rainLineSfx", {
+        loop: true,
+        volume: 0.16,
+      });
+    }
+
+    if (this.firstLineMusic.isPlaying) {
+      this.firstLineMusic.stop();
+    }
+
+    this.firstLineMusic.setVolume(0.16);
+
+    this.firstLineMusic.play({ seek: 0, volume: 0.16 });
+  }
+
+  fadeOutFirstLineMusic() {
+    if (!this.firstLineMusic || !this.firstLineMusic.isPlaying) {
+      return;
+    }
+
+    this.tweens.killTweensOf(this.firstLineMusic);
+    this.tweens.add({
+      targets: this.firstLineMusic,
+      volume: 0,
+      duration: 900,
+      ease: "Sine.easeOut",
+      onComplete: () => {
+        if (this.firstLineMusic && this.firstLineMusic.isPlaying) {
+          this.firstLineMusic.stop();
+        }
+      },
+    });
+  }
+
+  playFlatlineSegment() {
+    if (!this.flatlineClip) {
+      this.flatlineClip = this.sound.add("flatlineSfx", {
+        loop: false,
+        volume: 0.5,
+      });
+    }
+
+    if (this.flatlineFadeEvent) {
+      this.flatlineFadeEvent.remove(false);
+      this.flatlineFadeEvent = null;
+    }
+
+    if (this.flatlineStopEvent) {
+      this.flatlineStopEvent.remove(false);
+      this.flatlineStopEvent = null;
+    }
+
+    if (this.flatlineClip.isPlaying) {
+      this.flatlineClip.stop();
+    }
+
+    this.tweens.killTweensOf(this.flatlineClip);
+    this.flatlineClip.setVolume(0.5);
+
+    const segmentDurationMs = 5000;
+    const fadeDurationMs = 1000;
+    const flatlineEndAt = Date.now() + segmentDurationMs;
+    this.registry.set("flatlineEndAt", flatlineEndAt);
+
+    this.flatlineClip.play({ seek: 50, volume: 0.5 });
+
+    this.flatlineFadeEvent = this.time.delayedCall(segmentDurationMs - fadeDurationMs, () => {
+      this.tweens.add({
+        targets: this.flatlineClip,
+        volume: 0,
+        duration: fadeDurationMs,
+        ease: "Sine.easeOut",
+      });
+    });
+
+    this.flatlineStopEvent = this.time.delayedCall(segmentDurationMs, () => {
+      if (this.flatlineClip && this.flatlineClip.isPlaying) {
+        this.flatlineClip.stop();
+      }
+      this.registry.remove("flatlineEndAt");
+    });
+  }
+
   getTypingDelay(char) {
     if (char === ",") {
       return 180;
@@ -224,8 +326,22 @@ export class OpeningScene extends Phaser.Scene {
   finishOpening() {
     this.stopTypingSound();
 
+    if (this.firstLineMusic && this.firstLineMusic.isPlaying) {
+      this.firstLineMusic.stop();
+    }
+
     if (this.cicadaLoop && this.cicadaLoop.isPlaying) {
       this.cicadaLoop.stop();
+    }
+
+    if (this.flatlineFadeEvent) {
+      this.flatlineFadeEvent.remove(false);
+      this.flatlineFadeEvent = null;
+    }
+
+    if (this.flatlineStopEvent) {
+      this.flatlineStopEvent.remove(false);
+      this.flatlineStopEvent = null;
     }
 
     this.time.delayedCall(2200, () => {
