@@ -2,18 +2,27 @@ export class OpeningScene extends Phaser.Scene {
   constructor() {
     super("OpeningScene");
     this.targetLines = [
-      "Summer, 2026.",
-      "The cicadas' drone only seems to make the summer heat feel heavier.",
+      "SUMMER, 2026.",
+      "THE CICADAS' SOUND ONLY SEEMS TO MAKE THE SUMMER HEAT FEEL HEAVIER.",
+      "UH, IF ONLY I HAD MY SODA TO QUENCH MY THIRST.",
+      "BUT.",
+      "I DIED...",
     ];
     this.currentLineIndex = 0;
     this.currentIndex = 0;
     this.storyText = null;
+    this.bloodText = null;
     this.cursorText = null;
     this.cursorBlinkTween = null;
     this.glitchBars = null;
     this.glitchPulseCount = 0;
     this.typingLoop = null;
     this.cicadaLoop = null;
+    this.openingStaticLoop = null;
+    this.firstLineMusic = null;
+    this.flatlineClip = null;
+    this.flatlineFadeEvent = null;
+    this.flatlineStopEvent = null;
   }
 
   create() {
@@ -39,13 +48,25 @@ export class OpeningScene extends Phaser.Scene {
       .setAlpha(0.92)
       .setDepth(12);
 
+    this.bloodText = this.add
+      .text(width * 0.5, height * 0.5, "", {
+        fontFamily: "Yoster",
+        fontSize: "22px",
+        color: "#b20f16",
+        align: "center",
+        wordWrap: { width: width * 0.8, useAdvancedWrap: true },
+      })
+      .setOrigin(0, 0.5)
+      .setAlpha(0)
+      .setDepth(13);
+
     this.cursorText = this.add
       .text(width * 0.5, height * 0.5, "_", {
         fontFamily: "Yoster",
         fontSize: "26px",
         color: "#cfd6dd",
       })
-      .setOrigin(0, 0.5)
+      .setOrigin(0.5, 0)
       .setAlpha(0)
       .setDepth(12);
 
@@ -63,6 +84,17 @@ export class OpeningScene extends Phaser.Scene {
     const glitchPulses = 16;
     this.glitchPulseCount = 0;
 
+    if (!this.openingStaticLoop) {
+      this.openingStaticLoop = this.sound.add("staticSfx", {
+        loop: true,
+        volume: 0.52,
+      });
+    }
+
+    if (!this.openingStaticLoop.isPlaying) {
+      this.openingStaticLoop.play();
+    }
+
     this.time.addEvent({
       delay: 75,
       repeat: glitchPulses - 1,
@@ -78,6 +110,10 @@ export class OpeningScene extends Phaser.Scene {
     });
 
     this.time.delayedCall(glitchPulses * 75 + 130, () => {
+      if (this.openingStaticLoop && this.openingStaticLoop.isPlaying) {
+        this.openingStaticLoop.stop();
+      }
+
       this.cameras.main.setScroll(0, 0);
       this.glitchBars.clear();
       this.beginTyping();
@@ -110,9 +146,22 @@ export class OpeningScene extends Phaser.Scene {
   beginTyping() {
     this.currentIndex = 0;
     this.storyText.setText("");
+    this.storyText.setColor("#f2f5f8");
+    this.bloodText.setText("");
+    this.bloodText.setAlpha(0);
+    this.updateCursorPosition();
+
+    if (this.currentLineIndex === 0) {
+      this.startFirstLineMusic();
+    }
 
     if (this.currentLineIndex === 1) {
       this.startCicadaUnderSecondLine();
+    }
+
+    if (this.currentLineIndex === 4) {
+      this.fadeOutFirstLineMusic();
+      this.playFlatlineSegment();
     }
 
     this.startTypingSound();
@@ -134,6 +183,7 @@ export class OpeningScene extends Phaser.Scene {
     const char = activeLine[this.currentIndex];
     const nextString = activeLine.slice(0, this.currentIndex + 1);
     this.storyText.setText(nextString);
+    this.updateCursorPosition();
 
     const delay = this.getTypingDelay(char);
     this.applyTypingCadence(char, delay);
@@ -146,27 +196,75 @@ export class OpeningScene extends Phaser.Scene {
   handleLineComplete() {
     this.stopTypingSound();
 
-    if (this.currentLineIndex === 0) {
-      this.time.delayedCall(700, () => {
-        this.currentLineIndex = 1;
+    if (this.currentLineIndex < this.targetLines.length - 1) {
+      const interLinePause = this.currentLineIndex === 0 ? 3000 : 1800;
+      this.time.delayedCall(interLinePause, () => {
+        this.currentLineIndex += 1;
         this.beginTyping();
       });
       return;
     }
 
-    this.finishOpening();
+    this.runFinalLineBloodReveal();
+  }
+
+  runFinalLineBloodReveal() {
+    const finalLine = this.targetLines[this.currentLineIndex] || "";
+
+    this.storyText.setText(finalLine);
+    this.storyText.setAlpha(0.92);
+    this.bloodText.setText("");
+
+    const measure = this.add.text(0, 0, finalLine, {
+      fontFamily: "Yoster",
+      fontSize: "22px",
+      color: "#f2f5f8",
+    });
+    const leftX = this.storyText.x - measure.width * 0.5;
+    measure.destroy();
+
+    this.bloodText.setPosition(leftX, this.storyText.y);
+    this.bloodText.setAlpha(0.98);
+
+    this.cursorText.setAlpha(0);
+
+    this.time.delayedCall(520, () => {
+      let revealCount = 0;
+      const stepMs = 130;
+
+      this.time.addEvent({
+        delay: stepMs,
+        repeat: Math.max(0, finalLine.length - 1),
+        callback: () => {
+          revealCount += 1;
+          this.bloodText.setText(finalLine.slice(0, revealCount));
+
+          this.tweens.add({
+            targets: this.bloodText,
+            alpha: 1,
+            duration: 50,
+            ease: "Linear",
+          });
+        },
+      });
+
+      const totalFlowMs = Math.max(600, stepMs * finalLine.length + 300);
+      this.time.delayedCall(totalFlowMs, () => {
+        this.finishOpening();
+      });
+    });
   }
 
   startCicadaUnderSecondLine() {
     if (!this.cicadaLoop) {
       this.cicadaLoop = this.sound.add("cicadaSfx", {
         loop: true,
-        volume: 0,
+        volume: 0.52,
       });
     }
 
     this.tweens.killTweensOf(this.cicadaLoop);
-    this.cicadaLoop.setVolume(0);
+    this.cicadaLoop.setVolume(0.52);
 
     if (!this.cicadaLoop.isPlaying) {
       this.cicadaLoop.play();
@@ -174,28 +272,99 @@ export class OpeningScene extends Phaser.Scene {
 
     this.tweens.add({
       targets: this.cicadaLoop,
-      volume: 0.52,
-      duration: 850,
-      ease: "Sine.easeInOut",
+      volume: 0,
+      duration: 5000,
+      ease: "Linear",
+      onComplete: () => {
+        if (this.cicadaLoop && this.cicadaLoop.isPlaying) {
+          this.cicadaLoop.stop();
+        }
+      },
     });
+  }
 
-    this.time.delayedCall(4000, () => {
-      if (!this.cicadaLoop || !this.cicadaLoop.isPlaying) {
-        return;
-      }
+  startFirstLineMusic() {
+    if (!this.firstLineMusic) {
+      this.firstLineMusic = this.sound.add("rainLineSfx", {
+        loop: true,
+        volume: 0.16,
+      });
+    }
 
+    if (this.firstLineMusic.isPlaying) {
+      this.firstLineMusic.stop();
+    }
+
+    this.firstLineMusic.setVolume(0.16);
+
+    this.firstLineMusic.play({ seek: 0, volume: 0.16 });
+  }
+
+  fadeOutFirstLineMusic() {
+    if (!this.firstLineMusic || !this.firstLineMusic.isPlaying) {
+      return;
+    }
+
+    this.tweens.killTweensOf(this.firstLineMusic);
+    this.tweens.add({
+      targets: this.firstLineMusic,
+      volume: 0,
+      duration: 900,
+      ease: "Sine.easeOut",
+      onComplete: () => {
+        if (this.firstLineMusic && this.firstLineMusic.isPlaying) {
+          this.firstLineMusic.stop();
+        }
+      },
+    });
+  }
+
+  playFlatlineSegment() {
+    if (!this.flatlineClip) {
+      this.flatlineClip = this.sound.add("flatlineSfx", {
+        loop: false,
+        volume: 0.5,
+      });
+    }
+
+    if (this.flatlineFadeEvent) {
+      this.flatlineFadeEvent.remove(false);
+      this.flatlineFadeEvent = null;
+    }
+
+    if (this.flatlineStopEvent) {
+      this.flatlineStopEvent.remove(false);
+      this.flatlineStopEvent = null;
+    }
+
+    if (this.flatlineClip.isPlaying) {
+      this.flatlineClip.stop();
+    }
+
+    this.tweens.killTweensOf(this.flatlineClip);
+    this.flatlineClip.setVolume(0.5);
+
+    const segmentDurationMs = 5000;
+    const fadeDurationMs = 1000;
+    const flatlineEndAt = Date.now() + segmentDurationMs;
+    this.registry.set("flatlineEndAt", flatlineEndAt);
+
+    this.flatlineClip.play({ seek: 50, volume: 0.5 });
+
+    this.flatlineFadeEvent = this.time.delayedCall(segmentDurationMs - fadeDurationMs, () => {
       this.tweens.add({
-        targets: this.cicadaLoop,
+        targets: this.flatlineClip,
         volume: 0,
-        duration: 1000,
+        duration: fadeDurationMs,
         ease: "Sine.easeOut",
       });
     });
 
-    this.time.delayedCall(5000, () => {
-      if (this.cicadaLoop && this.cicadaLoop.isPlaying) {
-        this.cicadaLoop.stop();
+    this.flatlineStopEvent = this.time.delayedCall(segmentDurationMs, () => {
+      if (this.flatlineClip && this.flatlineClip.isPlaying) {
+        this.flatlineClip.stop();
       }
+      this.registry.remove("flatlineEndAt");
     });
   }
 
@@ -222,13 +391,27 @@ export class OpeningScene extends Phaser.Scene {
   finishOpening() {
     this.stopTypingSound();
 
+    if (this.firstLineMusic && this.firstLineMusic.isPlaying) {
+      this.firstLineMusic.stop();
+    }
+
     if (this.cicadaLoop && this.cicadaLoop.isPlaying) {
       this.cicadaLoop.stop();
     }
 
-    this.time.delayedCall(750, () => {
+    if (this.flatlineFadeEvent) {
+      this.flatlineFadeEvent.remove(false);
+      this.flatlineFadeEvent = null;
+    }
+
+    if (this.flatlineStopEvent) {
+      this.flatlineStopEvent.remove(false);
+      this.flatlineStopEvent = null;
+    }
+
+    this.time.delayedCall(2200, () => {
       this.tweens.add({
-        targets: [this.storyText, this.cursorText],
+        targets: [this.storyText, this.bloodText, this.cursorText],
         alpha: 0,
         duration: 420,
         ease: "Sine.easeInOut",
@@ -298,6 +481,17 @@ export class OpeningScene extends Phaser.Scene {
 
     this.typingLoop.setRate(1.0);
     this.typingLoop.setVolume(normalVolume);
+  }
+
+  updateCursorPosition() {
+    if (!this.storyText || !this.cursorText) {
+      return;
+    }
+
+    const textBounds = this.storyText.getBounds();
+    const cursorX = this.storyText.x;
+    const cursorY = textBounds.bottom + 6;
+    this.cursorText.setPosition(cursorX, cursorY);
   }
 
   startTypingSound() {
