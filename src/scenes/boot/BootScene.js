@@ -9,6 +9,7 @@ export class BootScene extends Phaser.Scene {
     this.load.audio("menuBgm", "public/assets/audio/music/After_The_Last_Train.mp3");
     this.load.audio("typingSfx", "public/assets/audio/sfx/typing.mp3");
     this.load.audio("cicadaSfx", "public/assets/audio/sfx/Cicada.mp3");
+    this.load.audio("staticSfx", "public/assets/audio/sfx/Static.mp3");
   }
 
   create() {

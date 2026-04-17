@@ -3,7 +3,7 @@ export class OpeningScene extends Phaser.Scene {
     super("OpeningScene");
     this.targetLines = [
       "Summer, 2026.",
-      "The cicadas' drone only seems to make the summer heat feel heavier.",
+      "The cicadas' sound only seems to make the summer heat feel heavier.",
     ];
     this.currentLineIndex = 0;
     this.currentIndex = 0;
@@ -14,6 +14,7 @@ export class OpeningScene extends Phaser.Scene {
     this.glitchPulseCount = 0;
     this.typingLoop = null;
     this.cicadaLoop = null;
+    this.openingStaticLoop = null;
   }
 
   create() {
@@ -63,6 +64,17 @@ export class OpeningScene extends Phaser.Scene {
     const glitchPulses = 16;
     this.glitchPulseCount = 0;
 
+    if (!this.openingStaticLoop) {
+      this.openingStaticLoop = this.sound.add("staticSfx", {
+        loop: true,
+        volume: 0.52,
+      });
+    }
+
+    if (!this.openingStaticLoop.isPlaying) {
+      this.openingStaticLoop.play();
+    }
+
     this.time.addEvent({
       delay: 75,
       repeat: glitchPulses - 1,
@@ -78,6 +90,10 @@ export class OpeningScene extends Phaser.Scene {
     });
 
     this.time.delayedCall(glitchPulses * 75 + 130, () => {
+      if (this.openingStaticLoop && this.openingStaticLoop.isPlaying) {
+        this.openingStaticLoop.stop();
+      }
+
       this.cameras.main.setScroll(0, 0);
       this.glitchBars.clear();
       this.beginTyping();
@@ -161,12 +177,12 @@ export class OpeningScene extends Phaser.Scene {
     if (!this.cicadaLoop) {
       this.cicadaLoop = this.sound.add("cicadaSfx", {
         loop: true,
-        volume: 0,
+        volume: 0.52,
       });
     }
 
     this.tweens.killTweensOf(this.cicadaLoop);
-    this.cicadaLoop.setVolume(0);
+    this.cicadaLoop.setVolume(0.52);
 
     if (!this.cicadaLoop.isPlaying) {
       this.cicadaLoop.play();
@@ -174,28 +190,14 @@ export class OpeningScene extends Phaser.Scene {
 
     this.tweens.add({
       targets: this.cicadaLoop,
-      volume: 0.52,
-      duration: 850,
-      ease: "Sine.easeInOut",
-    });
-
-    this.time.delayedCall(4000, () => {
-      if (!this.cicadaLoop || !this.cicadaLoop.isPlaying) {
-        return;
-      }
-
-      this.tweens.add({
-        targets: this.cicadaLoop,
-        volume: 0,
-        duration: 1000,
-        ease: "Sine.easeOut",
-      });
-    });
-
-    this.time.delayedCall(5000, () => {
-      if (this.cicadaLoop && this.cicadaLoop.isPlaying) {
-        this.cicadaLoop.stop();
-      }
+      volume: 0,
+      duration: 5000,
+      ease: "Linear",
+      onComplete: () => {
+        if (this.cicadaLoop && this.cicadaLoop.isPlaying) {
+          this.cicadaLoop.stop();
+        }
+      },
     });
   }
 
@@ -226,7 +228,7 @@ export class OpeningScene extends Phaser.Scene {
       this.cicadaLoop.stop();
     }
 
-    this.time.delayedCall(750, () => {
+    this.time.delayedCall(2200, () => {
       this.tweens.add({
         targets: [this.storyText, this.cursorText],
         alpha: 0,

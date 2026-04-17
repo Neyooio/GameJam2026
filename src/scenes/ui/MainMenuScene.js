@@ -136,7 +136,7 @@ export class MainMenuScene extends Phaser.Scene {
       this.nextSwitchEvent.remove(false);
     }
 
-    this.nextSwitchEvent = this.time.delayedCall(20000, () => {
+    this.nextSwitchEvent = this.time.delayedCall(10000, () => {
       this.beginSwitchSequence();
     });
   }
@@ -195,7 +195,7 @@ export class MainMenuScene extends Phaser.Scene {
           return;
         }
 
-        humanImage.setAlpha(0.965);
+        humanImage.setAlpha(0.96);
 
         this.tweens.add({
           targets: humanImage,
@@ -203,6 +203,24 @@ export class MainMenuScene extends Phaser.Scene {
           duration: 220,
           ease: "Linear",
         });
+
+        if (Phaser.Math.Between(0, 100) < 30) {
+          this.renderStaticLines(0.06);
+          if (this.staticLines) {
+            this.staticLines.setAlpha(0.12);
+            this.tweens.add({
+              targets: this.staticLines,
+              alpha: 0,
+              duration: 150,
+              ease: "Linear",
+              onComplete: () => {
+                if (this.staticLines && !this.preSwitchActive) {
+                  this.staticLines.setVisible(false);
+                }
+              },
+            });
+          }
+        }
       },
     });
   }
