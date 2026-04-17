@@ -9,6 +9,10 @@ export class MainMenuScene extends Phaser.Scene {
     this.playButtonShadow = null;
     this.playText = null;
     this.playZone = null;
+    this.tutorialButton = null;
+    this.tutorialButtonShadow = null;
+    this.tutorialText = null;
+    this.tutorialZone = null;
     this.staticLines = null;
     this.subtleFlickerLoop = null;
     this.nextSwitchEvent = null;
@@ -118,7 +122,9 @@ export class MainMenuScene extends Phaser.Scene {
     const textHoverColor = "#2a211c";
 
     const centerX = width * 0.82;
-    const centerY = height * 0.50; // Dead center vertically
+    const groupCenterY = height * 0.50; // Dead center vertically
+    const centerY = groupCenterY - 27; // Shift up to center the group
+    const tutorialCenterY = groupCenterY + 27; // Shift down
 
     // Button now acts as its own embedded element directly on the wall
     this.playButtonShadow = this.add.rectangle(centerX - 2, centerY - 2, 140, 34, 0x000000, 0.6).setDepth(10);
@@ -163,6 +169,54 @@ export class MainMenuScene extends Phaser.Scene {
     });
 
     this.playZone.on("pointerdown", (pointer) => {
+      if (!pointer.leftButtonDown()) {
+        return;
+      }
+      if (this.cache.audio.exists("uiClickSfx")) {
+        this.sound.play("uiClickSfx", { volume: 0.6 });
+      }
+      this.cameras.main.flash(160, 178, 246, 255, true);
+    });
+
+    // Tutorial Button
+    this.tutorialButtonShadow = this.add.rectangle(centerX - 2, tutorialCenterY - 2, 140, 34, 0x000000, 0.6).setDepth(10);
+    this.tutorialButton = this.add.rectangle(centerX, tutorialCenterY, 140, 34, buttonFillColor, 0.9).setDepth(10);
+    this.tutorialButton.setStrokeStyle(2, accentColor, 1);
+
+    this.tutorialText = this.add
+      .text(centerX, tutorialCenterY, "TUTORIAL", {
+        fontFamily: "Yoster",
+        fontSize: "16px",
+        color: textColor,
+        shadow: { fill: true, offsetX: 1, offsetY: 1, color: "#000000", blur: 0 },
+      })
+      .setOrigin(0.5)
+      .setDepth(10);
+
+    this.tutorialZone = this.add.rectangle(centerX, tutorialCenterY, 140, 34, 0x000000, 0)
+      .setDepth(20)
+      .setInteractive({ useHandCursor: true });
+
+    this.tutorialZone.on("pointerover", () => {
+      if (this.cache.audio.exists("uiHoverSfx")) {
+        this.sound.play("uiHoverSfx", { volume: 0.5 });
+      }
+      this.tutorialButton.setFillStyle(accentColor, 1);
+      this.tutorialText.setColor(textHoverColor);
+      this.tutorialText.setShadowOffset(0, 0);
+      this.tutorialButton.setPosition(centerX - 1, tutorialCenterY - 1);
+      this.tutorialText.setPosition(centerX - 1, tutorialCenterY - 1);
+    });
+
+    this.tutorialZone.on("pointerout", () => {
+      this.tutorialButton.setFillStyle(buttonFillColor, 0.9);
+      this.tutorialText.setColor(textColor);
+      this.tutorialText.setShadowOffset(1, 1);
+      this.tutorialButton.setPosition(centerX, tutorialCenterY);
+      this.tutorialText.setPosition(centerX, tutorialCenterY);
+    });
+
+    this.tutorialZone.on("pointerdown", (pointer) => {
       if (!pointer.leftButtonDown()) {
         return;
       }
@@ -387,7 +441,9 @@ export class MainMenuScene extends Phaser.Scene {
     });
 
     const centerX = width * 0.82;
-    const centerY = height * 0.50;
+    const groupCenterY = height * 0.50;
+    const centerY = groupCenterY - 27;
+    const tutorialCenterY = groupCenterY + 27;
 
     if (this.playButtonShadow) {
       this.playButtonShadow.setPosition(centerX - 2, centerY - 2);
@@ -403,6 +459,22 @@ export class MainMenuScene extends Phaser.Scene {
 
     if (this.playZone) {
       this.playZone.setPosition(centerX, centerY);
+    }
+
+    if (this.tutorialButtonShadow) {
+      this.tutorialButtonShadow.setPosition(centerX - 2, tutorialCenterY - 2);
+    }
+
+    if (this.tutorialButton) {
+      this.tutorialButton.setPosition(centerX, tutorialCenterY);
+    }
+
+    if (this.tutorialText) {
+      this.tutorialText.setPosition(centerX, tutorialCenterY);
+    }
+
+    if (this.tutorialZone) {
+      this.tutorialZone.setPosition(centerX, tutorialCenterY);
     }
 
     if (this.staticLines && this.backgroundKeys[this.activeIndex] === "bgHuman" && this.preSwitchActive) {
