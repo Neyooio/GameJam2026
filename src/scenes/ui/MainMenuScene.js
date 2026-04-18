@@ -13,6 +13,11 @@ export class MainMenuScene extends Phaser.Scene {
     this.tutorialButtonShadow = null;
     this.tutorialText = null;
     this.tutorialZone = null;
+    this.exitButton = null;
+    this.exitButtonShadow = null;
+    this.exitText = null;
+    this.exitZone = null;
+    this.titleLines = [];
     this.staticLines = null;
     this.subtleFlickerLoop = null;
     this.nextSwitchEvent = null;
@@ -43,6 +48,7 @@ export class MainMenuScene extends Phaser.Scene {
     });
 
     this.startBackgroundMotion();
+  this.createAnimatedTitle();
 
     this.addOverlayUI();
     this.addCrtOverlay();
@@ -113,6 +119,52 @@ export class MainMenuScene extends Phaser.Scene {
     });
   }
 
+  createAnimatedTitle() {
+    const { width, height } = this.scale;
+    const leftX = width * 0.19;
+    const centerY = height * 0.5;
+
+    const specs = [
+      { text: "I", xOffset: -24, yOffset: -100, size: "50px" },
+      { text: "REINCARNATED", xOffset: 30, yOffset: -24, size: "44px" },
+      { text: "AS A", xOffset: -12, yOffset: 40, size: "36px" },
+      { text: "VENDING MACHINE", xOffset: 38, yOffset: 106, size: "46px" },
+    ];
+
+    this.titleLines = specs.map((spec) => {
+      const targetX = leftX + spec.xOffset;
+      const targetY = centerY + spec.yOffset;
+
+      const line = this.add
+        .text(-460, targetY, spec.text, {
+          fontFamily: "Yoster",
+          fontSize: spec.size,
+          color: "#f7fbff",
+          stroke: "#141c24",
+          strokeThickness: 3,
+          shadow: { fill: true, offsetX: 4, offsetY: 4, color: "#000000", blur: 0 },
+        })
+        .setOrigin(0.5)
+        .setAlpha(0.98)
+        .setDepth(14);
+
+      line.setData("targetX", targetX);
+      line.setData("targetY", targetY);
+
+      return line;
+    });
+
+    this.titleLines.forEach((line, index) => {
+      this.tweens.add({
+        targets: line,
+        x: line.getData("targetX"),
+        duration: 760,
+        delay: 120 + index * 110,
+        ease: "Cubic.easeOut",
+      });
+    });
+  }
+
   addOverlayUI() {
     const { width, height } = this.scale;
 
@@ -126,8 +178,9 @@ export class MainMenuScene extends Phaser.Scene {
 
     const centerX = width * 0.82;
     const groupCenterY = height * 0.50; // Dead center vertically
-    const centerY = groupCenterY - 27; // Shift up to center the group
-    const tutorialCenterY = groupCenterY + 27; // Shift down
+    const centerY = groupCenterY - 54;
+    const tutorialCenterY = groupCenterY;
+    const exitCenterY = groupCenterY + 54;
 
     // Button now acts as its own embedded element directly on the wall
     this.playButtonShadow = this.add.rectangle(centerX - 2, centerY - 2, 140, 34, 0x000000, 0.6).setDepth(10);
@@ -151,10 +204,7 @@ export class MainMenuScene extends Phaser.Scene {
       .setInteractive({ useHandCursor: true });
 
     this.playZone.on("pointerover", () => {
-      // Check cache first to avoid crashes if audio file is missing
-      if (this.cache.audio.exists("uiHoverSfx")) {
-        this.sound.play("uiHoverSfx", { volume: 0.5 });
-      }
+      this.playHoverSfx();
       this.playButton.setFillStyle(accentColor, 1);
       this.playText.setColor(textHoverColor);
       this.playText.setShadowOffset(0, 0); // Remove shadow when hovering for flat inset look
@@ -201,9 +251,7 @@ export class MainMenuScene extends Phaser.Scene {
       .setInteractive({ useHandCursor: true });
 
     this.tutorialZone.on("pointerover", () => {
-      if (this.cache.audio.exists("uiHoverSfx")) {
-        this.sound.play("uiHoverSfx", { volume: 0.5 });
-      }
+      this.playHoverSfx();
       this.tutorialButton.setFillStyle(accentColor, 1);
       this.tutorialText.setColor(textHoverColor);
       this.tutorialText.setShadowOffset(0, 0);
@@ -227,6 +275,57 @@ export class MainMenuScene extends Phaser.Scene {
         this.sound.play("uiClickSfx", { volume: 0.6 });
       }
       this.cameras.main.flash(160, 178, 246, 255, true);
+    });
+
+    // Exit Button
+    this.exitButtonShadow = this.add.rectangle(centerX - 2, exitCenterY - 2, 140, 34, 0x000000, 0.6).setDepth(10);
+    this.exitButton = this.add.rectangle(centerX, exitCenterY, 140, 34, buttonFillColor, 0.9).setDepth(10);
+    this.exitButton.setStrokeStyle(2, accentColor, 1);
+
+    this.exitText = this.add
+      .text(centerX, exitCenterY, "EXIT", {
+        fontFamily: "Yoster",
+        fontSize: "16px",
+        color: textColor,
+        shadow: { fill: true, offsetX: 1, offsetY: 1, color: "#000000", blur: 0 },
+      })
+      .setOrigin(0.5)
+      .setDepth(10);
+
+    this.exitZone = this.add.rectangle(centerX, exitCenterY, 140, 34, 0x000000, 0)
+      .setDepth(20)
+      .setInteractive({ useHandCursor: true });
+
+    this.exitZone.on("pointerover", () => {
+      this.playHoverSfx();
+      this.exitButton.setFillStyle(accentColor, 1);
+      this.exitText.setColor(textHoverColor);
+      this.exitText.setShadowOffset(0, 0);
+      this.exitButton.setPosition(centerX - 1, exitCenterY - 1);
+      this.exitText.setPosition(centerX - 1, exitCenterY - 1);
+    });
+
+    this.exitZone.on("pointerout", () => {
+      this.exitButton.setFillStyle(buttonFillColor, 0.9);
+      this.exitText.setColor(textColor);
+      this.exitText.setShadowOffset(1, 1);
+      this.exitButton.setPosition(centerX, exitCenterY);
+      this.exitText.setPosition(centerX, exitCenterY);
+    });
+
+    this.exitZone.on("pointerdown", (pointer) => {
+      if (!pointer.leftButtonDown()) {
+        return;
+      }
+
+      if (this.cache.audio.exists("uiClickSfx")) {
+        this.sound.play("uiClickSfx", { volume: 0.6 });
+      }
+
+      this.cameras.main.flash(180, 255, 255, 255, true);
+      this.time.delayedCall(190, () => {
+        this.game.destroy(true);
+      });
     });
   }
 
@@ -515,8 +614,9 @@ export class MainMenuScene extends Phaser.Scene {
 
     const centerX = width * 0.82;
     const groupCenterY = height * 0.50;
-    const centerY = groupCenterY - 27;
-    const tutorialCenterY = groupCenterY + 27;
+    const centerY = groupCenterY - 54;
+    const tutorialCenterY = groupCenterY;
+    const exitCenterY = groupCenterY + 54;
 
     if (this.playButtonShadow) {
       this.playButtonShadow.setPosition(centerX - 2, centerY - 2);
@@ -550,6 +650,42 @@ export class MainMenuScene extends Phaser.Scene {
       this.tutorialZone.setPosition(centerX, tutorialCenterY);
     }
 
+    if (this.exitButtonShadow) {
+      this.exitButtonShadow.setPosition(centerX - 2, exitCenterY - 2);
+    }
+
+    if (this.exitButton) {
+      this.exitButton.setPosition(centerX, exitCenterY);
+    }
+
+    if (this.exitText) {
+      this.exitText.setPosition(centerX, exitCenterY);
+    }
+
+    if (this.exitZone) {
+      this.exitZone.setPosition(centerX, exitCenterY);
+    }
+
+    if (this.titleLines.length) {
+      const leftX = width * 0.19;
+      const centerY = height * 0.5;
+      const offsets = [
+        { x: -24, y: -100 },
+        { x: 30, y: -24 },
+        { x: -12, y: 40 },
+        { x: 38, y: 106 },
+      ];
+
+      this.titleLines.forEach((line, index) => {
+        const offset = offsets[index] || { x: 0, y: 0 };
+        const targetX = leftX + offset.x;
+        const targetY = centerY + offset.y;
+        line.setData("targetX", targetX);
+        line.setData("targetY", targetY);
+        line.setPosition(targetX, targetY);
+      });
+    }
+
     if (this.staticLines && this.backgroundKeys[this.activeIndex] === "bgHuman" && this.preSwitchActive) {
       this.renderStaticLines(0.1);
     }
@@ -557,5 +693,22 @@ export class MainMenuScene extends Phaser.Scene {
     // Re-draw CRT overlays to match new dimensions
     this.drawScanlines();
     this.createVignette();
+  }
+
+  playHoverSfx() {
+    if (!this.cache.audio.exists("uiHoverSfx")) {
+      return;
+    }
+
+    const hoverSfx = this.sound.add("uiHoverSfx", {
+      volume: 0.45,
+      rate: Phaser.Math.FloatBetween(0.98, 1.04),
+    });
+
+    hoverSfx.once("complete", () => {
+      hoverSfx.destroy();
+    });
+
+    hoverSfx.play();
   }
 }

@@ -9,12 +9,22 @@ export class BootScene extends Phaser.Scene {
     this.load.audio("menuBgm", "public/assets/audio/music/After_The_Last_Train.mp3");
     this.load.audio("rainLineSfx", "public/assets/audio/music/Rain_Against_the_Glass.mp3");
     this.load.audio("typingSfx", "public/assets/audio/sfx/typing.mp3");
+    this.load.audio("uiHoverSfx", "public/assets/audio/sfx/Buttonsound.mp3");
     this.load.audio("cicadaSfx", "public/assets/audio/sfx/Cicada.mp3");
     this.load.audio("staticSfx", "public/assets/audio/sfx/Static.mp3");
     this.load.audio("flatlineSfx", "public/assets/audio/sfx/Flatline.mp3");
   }
 
-  create() {
+  async create() {
+    if (typeof document !== "undefined" && document.fonts && document.fonts.load) {
+      try {
+        await document.fonts.load('16px "Yoster"');
+        await document.fonts.ready;
+      } catch (error) {
+        // Continue boot even if the Font Loading API fails.
+      }
+    }
+
     this.scene.start("OpeningScene");
   }
 }
