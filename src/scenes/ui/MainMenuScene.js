@@ -20,6 +20,8 @@ export class MainMenuScene extends Phaser.Scene {
     this.backgroundDriftStates = [];
     this.sharedShakeTime = 0;
     this.sharedShakeSeed = Math.random() * 1000;
+    this.crtScanlines = null;
+    this.vignetteImage = null;
   }
 
   create() {
@@ -43,6 +45,7 @@ export class MainMenuScene extends Phaser.Scene {
     this.startBackgroundMotion();
 
     this.addOverlayUI();
+    this.addCrtOverlay();
 
     this.updateHumanVisualState();
     this.scheduleNextSwitch();
@@ -432,6 +435,76 @@ export class MainMenuScene extends Phaser.Scene {
     image.setData("baseScale", scale);
   }
 
+  addCrtOverlay() {
+    this.drawScanlines();
+    this.createVignette();
+  }
+
+  drawScanlines() {
+    const { width, height } = this.scale;
+
+    if (!this.crtScanlines) {
+      this.crtScanlines = this.add.graphics();
+      this.crtScanlines.setDepth(50);
+    }
+
+    this.crtScanlines.clear();
+
+    // Thin dark lines every 3px to simulate CRT scanlines
+    const lineSpacing = 3;
+    this.crtScanlines.fillStyle(0x000000, 0.12);
+    for (let y = 0; y < height; y += lineSpacing) {
+      this.crtScanlines.fillRect(0, y, width, 1);
+    }
+
+    // Faint bright highlight lines every 6px for phosphor glow illusion
+    this.crtScanlines.fillStyle(0xffffff, 0.015);
+    for (let y = 1; y < height; y += lineSpacing * 2) {
+      this.crtScanlines.fillRect(0, y, width, 1);
+    }
+  }
+
+  createVignette() {
+    const { width, height } = this.scale;
+    const key = "__crt_vignette";
+
+    // Remove previous vignette image if it exists
+    if (this.vignetteImage) {
+      this.vignetteImage.destroy();
+      this.vignetteImage = null;
+    }
+
+    // Remove old texture to avoid key-clash on resize
+    if (this.textures.exists(key)) {
+      this.textures.remove(key);
+    }
+
+    // Create a CanvasTexture and draw a radial gradient vignette
+    const canvasTex = this.textures.createCanvas(key, width, height);
+    const ctx = canvasTex.getContext();
+
+    // Radial gradient: transparent center → dark edges
+    const cx = width * 0.5;
+    const cy = height * 0.5;
+    const innerRadius = Math.min(width, height) * 0.25;
+    const outerRadius = Math.max(width, height) * 0.85;
+
+    const gradient = ctx.createRadialGradient(cx, cy, innerRadius, cx, cy, outerRadius);
+    gradient.addColorStop(0, "rgba(0, 0, 0, 0)");
+    gradient.addColorStop(0.5, "rgba(0, 0, 0, 0.15)");
+    gradient.addColorStop(0.8, "rgba(0, 0, 0, 0.45)");
+    gradient.addColorStop(1, "rgba(0, 0, 0, 0.75)");
+
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+
+    canvasTex.refresh();
+
+    this.vignetteImage = this.add.image(cx, cy, key)
+      .setDepth(49)
+      .setAlpha(1);
+  }
+
   handleResize(gameSize) {
     const width = gameSize.width;
     const height = gameSize.height;
@@ -480,5 +553,9 @@ export class MainMenuScene extends Phaser.Scene {
     if (this.staticLines && this.backgroundKeys[this.activeIndex] === "bgHuman" && this.preSwitchActive) {
       this.renderStaticLines(0.1);
     }
+
+    // Re-draw CRT overlays to match new dimensions
+    this.drawScanlines();
+    this.createVignette();
   }
 }
