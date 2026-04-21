@@ -33,6 +33,13 @@ export class MainMenuScene extends Phaser.Scene {
   create() {
     const { width, height } = this.scale;
     this.isStartingGame = false;
+    this.isTransitioning = false;
+    this.preSwitchActive = false;
+    this.activeIndex = Phaser.Math.Clamp(this.activeIndex, 0, this.backgroundKeys.length - 1);
+
+    // Ensure camera fade/flash state from previous scene transitions never carries over.
+    this.cameras.main.resetFX();
+    this.cameras.main.setAlpha(1);
 
     const menuBgm = this.sound.get("menuBgm");
     if (menuBgm) {
@@ -44,7 +51,7 @@ export class MainMenuScene extends Phaser.Scene {
     }
 
     this.backgroundImages = this.backgroundKeys.map((key, index) => {
-      const image = this.add.image(width * 0.5, height * 0.5, key).setAlpha(index === 0 ? 1 : 0);
+      const image = this.add.image(width * 0.5, height * 0.5, key).setAlpha(index === this.activeIndex ? 1 : 0);
       this.fitImageToCamera(image);
       return image;
     });
