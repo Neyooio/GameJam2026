@@ -27,10 +27,12 @@ export class MainMenuScene extends Phaser.Scene {
     this.sharedShakeSeed = Math.random() * 1000;
     this.crtScanlines = null;
     this.vignetteImage = null;
+    this.isStartingGame = false;
   }
 
   create() {
     const { width, height } = this.scale;
+    this.isStartingGame = false;
 
     const menuBgm = this.sound.get("menuBgm");
     if (menuBgm) {
@@ -225,10 +227,7 @@ export class MainMenuScene extends Phaser.Scene {
       if (!pointer.leftButtonDown()) {
         return;
       }
-      if (this.cache.audio.exists("uiClickSfx")) {
-        this.sound.play("uiClickSfx", { volume: 0.6 });
-      }
-      this.cameras.main.flash(160, 178, 246, 255, true);
+      this.startGameplay(false);
     });
 
     // Tutorial Button
@@ -271,10 +270,7 @@ export class MainMenuScene extends Phaser.Scene {
       if (!pointer.leftButtonDown()) {
         return;
       }
-      if (this.cache.audio.exists("uiClickSfx")) {
-        this.sound.play("uiClickSfx", { volume: 0.6 });
-      }
-      this.cameras.main.flash(160, 178, 246, 255, true);
+      this.startGameplay(true);
     });
 
     // Exit Button
@@ -326,6 +322,26 @@ export class MainMenuScene extends Phaser.Scene {
       this.time.delayedCall(190, () => {
         this.game.destroy(true);
       });
+    });
+  }
+
+  startGameplay(tutorialMode) {
+    if (this.isStartingGame) {
+      return;
+    }
+
+    this.isStartingGame = true;
+
+    if (this.cache.audio.exists("uiClickSfx")) {
+      this.sound.play("uiClickSfx", { volume: 0.6 });
+    }
+
+    this.cameras.main.flash(160, 178, 246, 255, true);
+    this.time.delayedCall(120, () => {
+      this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+        this.scene.start("OverheatPuzzleScene", { tutorial: tutorialMode });
+      });
+      this.cameras.main.fadeOut(260, 10, 16, 24);
     });
   }
 
