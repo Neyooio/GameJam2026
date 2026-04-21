@@ -13,6 +13,8 @@ export class OpeningScene extends Phaser.Scene {
     this.storyText = null;
     this.bloodText = null;
     this.cursorText = null;
+    this.skipText = null;
+    this.isSkipping = false;
     this.cursorBlinkTween = null;
     this.glitchBars = null;
     this.glitchPulseCount = 0;
@@ -27,6 +29,7 @@ export class OpeningScene extends Phaser.Scene {
 
   create() {
     const { width, height } = this.scale;
+    this.isSkipping = false;
 
     this.cameras.main.setBackgroundColor("#000000");
 
@@ -69,6 +72,32 @@ export class OpeningScene extends Phaser.Scene {
       .setOrigin(0.5, 0)
       .setAlpha(0)
       .setDepth(12);
+
+    this.skipText = this.add
+      .text(width - 18, height - 14, "Skip >>", {
+        fontFamily: "Yoster",
+        fontSize: "16px",
+        color: "#cdd9e8",
+      })
+      .setOrigin(1, 1)
+      .setAlpha(0.88)
+      .setDepth(30)
+      .setInteractive({ useHandCursor: true });
+
+    this.skipText.on("pointerover", () => {
+      this.skipText.setAlpha(1);
+    });
+
+    this.skipText.on("pointerout", () => {
+      this.skipText.setAlpha(0.88);
+    });
+
+    this.skipText.on("pointerdown", (pointer) => {
+      if (!pointer.leftButtonDown()) {
+        return;
+      }
+      this.skipOpening();
+    });
 
     this.runOpeningGlitch();
   }
@@ -144,6 +173,10 @@ export class OpeningScene extends Phaser.Scene {
   }
 
   beginTyping() {
+    if (this.isSkipping) {
+      return;
+    }
+
     this.currentIndex = 0;
     this.storyText.setText("");
     this.storyText.setColor("#f2f5f8");
@@ -173,6 +206,10 @@ export class OpeningScene extends Phaser.Scene {
   }
 
   typeNextCharacter() {
+    if (this.isSkipping) {
+      return;
+    }
+
     const activeLine = this.targetLines[this.currentLineIndex] || "";
 
     if (this.currentIndex >= activeLine.length) {
@@ -194,6 +231,10 @@ export class OpeningScene extends Phaser.Scene {
   }
 
   handleLineComplete() {
+    if (this.isSkipping) {
+      return;
+    }
+
     this.stopTypingSound();
 
     if (this.currentLineIndex < this.targetLines.length - 1) {
@@ -209,47 +250,49 @@ export class OpeningScene extends Phaser.Scene {
   }
 
   runFinalLineBloodReveal() {
+    if (this.isSkipping) {
+      return;
+    }
+
     const finalLine = this.targetLines[this.currentLineIndex] || "";
+    const redPart = "DIED";
+    const prefix = "I ";
 
     this.storyText.setText(finalLine);
     this.storyText.setAlpha(0.92);
     this.bloodText.setText("");
+    this.bloodText.setAlpha(0);
 
-    const measure = this.add.text(0, 0, finalLine, {
+    const fullMeasure = this.add.text(0, 0, finalLine, {
       fontFamily: "Yoster",
       fontSize: "22px",
       color: "#f2f5f8",
     });
-    const leftX = this.storyText.x - measure.width * 0.5;
-    measure.destroy();
+    const prefixMeasure = this.add.text(0, 0, prefix, {
+      fontFamily: "Yoster",
+      fontSize: "22px",
+      color: "#f2f5f8",
+    });
 
-    this.bloodText.setPosition(leftX, this.storyText.y);
-    this.bloodText.setAlpha(0.98);
+    const leftX = this.storyText.x - fullMeasure.width * 0.5;
+    const redStartX = leftX + prefixMeasure.width;
+    fullMeasure.destroy();
+    prefixMeasure.destroy();
+
+    this.bloodText.setPosition(redStartX, this.storyText.y);
+    this.bloodText.setText(redPart);
 
     this.cursorText.setAlpha(0);
 
-    this.time.delayedCall(520, () => {
-      let revealCount = 0;
-      const stepMs = 130;
-
-      this.time.addEvent({
-        delay: stepMs,
-        repeat: Math.max(0, finalLine.length - 1),
-        callback: () => {
-          revealCount += 1;
-          this.bloodText.setText(finalLine.slice(0, revealCount));
-
-          this.tweens.add({
-            targets: this.bloodText,
-            alpha: 1,
-            duration: 50,
-            ease: "Linear",
-          });
-        },
+    this.time.delayedCall(260, () => {
+      this.tweens.add({
+        targets: this.bloodText,
+        alpha: 0.98,
+        duration: 160,
+        ease: "Linear",
       });
 
-      const totalFlowMs = Math.max(600, stepMs * finalLine.length + 300);
-      this.time.delayedCall(totalFlowMs, () => {
+      this.time.delayedCall(820, () => {
         this.finishOpening();
       });
     });
@@ -389,6 +432,10 @@ export class OpeningScene extends Phaser.Scene {
   }
 
   finishOpening() {
+    if (this.isSkipping) {
+      return;
+    }
+
     this.stopTypingSound();
 
     if (this.firstLineMusic && this.firstLineMusic.isPlaying) {
@@ -421,6 +468,38 @@ export class OpeningScene extends Phaser.Scene {
       this.time.delayedCall(550, () => {
         this.scene.start("IntroScene");
       });
+    });
+  }
+
+  skipOpening() {
+    if (this.isSkipping) {
+      return;
+    }
+
+    this.isSkipping = true;
+
+    if (this.skipText) {
+      this.skipText.disableInteractive();
+      this.skipText.setAlpha(0.4);
+    }
+
+    this.stopTypingSound();
+
+    if (this.cursorBlinkTween) {
+      this.cursorBlinkTween.stop();
+      this.cursorBlinkTween = null;
+    }
+
+    [this.firstLineMusic, this.cicadaLoop, this.openingStaticLoop, this.flatlineClip].forEach((soundObj) => {
+      if (soundObj && soundObj.isPlaying) {
+        soundObj.stop();
+      }
+    });
+
+    this.tweens.killTweensOf([this.storyText, this.bloodText, this.cursorText]);
+    this.cameras.main.fadeOut(260, 0, 0, 0);
+    this.time.delayedCall(280, () => {
+      this.scene.start("IntroScene");
     });
   }
 
