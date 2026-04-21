@@ -65,6 +65,8 @@ export class OverheatPuzzleScene extends Phaser.Scene {
 
     this.cellRects = [];
     this.slotFillRects = [];
+    this.slotFillGlows = [];
+    this.slotFillShines = [];
     this.slotFillCaps = [];
     this.tileSprites = [];
     this.freezeTexts = [];
@@ -174,8 +176,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
 
   createBoardViews() {
     this.cellRects = [];
-    this.slotFillRects = [];
-    this.slotFillCaps = [];
+    this.tileSpritesBase = [];
     this.tileSprites = [];
     this.freezeTexts = [];
 
@@ -189,18 +190,16 @@ export class OverheatPuzzleScene extends Phaser.Scene {
           .setOrigin(0)
           .setStrokeStyle(2, 0x395365, 1);
 
-        const slotFill = this.add
-          .rectangle(px + 4, py + this.cellSize - 6, this.cellSize - 16, 0, 0xffffff, 0.72)
-          .setOrigin(0, 1)
+        // Base dimensioned sprite that appears uncharged (dim/desaturated)
+        const spriteBase = this.add
+          .image(px + (this.cellSize - 8) * 0.5, py + (this.cellSize - 8) * 0.5, "propWater")
+          .setTint(0x666666)
+          .setAlpha(0.6)
           .setVisible(false);
 
+        // Sprite on top that gets cropped bottom-to-top as charge fills up
         const sprite = this.add
           .image(px + (this.cellSize - 8) * 0.5, py + (this.cellSize - 8) * 0.5, "propWater")
-          .setVisible(false);
-
-        const slotFillCap = this.add
-          .rectangle(px + 4, py + this.cellSize - 6, this.cellSize - 16, 2, 0xffffff, 0.95)
-          .setOrigin(0, 1)
           .setVisible(false);
 
         const freezeText = this.add
@@ -212,8 +211,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
           .setOrigin(0, 0.5);
 
         this.cellRects.push(rect);
-        this.slotFillRects.push(slotFill);
-        this.slotFillCaps.push(slotFillCap);
+        this.tileSpritesBase.push(spriteBase);
         this.tileSprites.push(sprite);
         this.freezeTexts.push(freezeText);
       }
@@ -234,7 +232,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    this.iceCoreBar = this.add.rectangle(panelX - 98, 126, 0, 14, 0x79ddff, 1).setOrigin(0, 0.5);
+    this.iceCoreBar = this.add.rectangle(panelX - 98, 126, 196, 14, 0x79ddff, 1).setOrigin(0, 0.5);
     this.add.rectangle(panelX, 126, 196, 14, 0x2a3b48, 1).setOrigin(0.5).setDepth(this.iceCoreBar.depth - 1);
 
     this.scoreText = this.add
@@ -640,6 +638,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
 
   playBurstPreShake(burst, onDone) {
     const idx = burst.y * this.gridSize + burst.x;
+    const spriteBase = this.tileSpritesBase[idx];
     const sprite = this.tileSprites[idx];
     const rect = this.cellRects[idx];
 
@@ -656,7 +655,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     }
 
     this.tweens.add({
-      targets: sprite,
+      targets: [spriteBase, sprite],
       x: { from: origX - 1.5, to: origX + 1.5 },
       y: { from: origY - 0.8, to: origY + 0.8 },
       duration: 55,
@@ -664,6 +663,8 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       repeat: 3,
       ease: "Sine.easeInOut",
       onComplete: () => {
+        spriteBase.x = origX;
+        spriteBase.y = origY;
         sprite.x = origX;
         sprite.y = origY;
         onDone();
@@ -728,8 +729,13 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       }
 
       const idx = y * this.gridSize + x;
+      const spriteBase = this.tileSpritesBase[idx];
       const sprite = this.tileSprites[idx];
       const rect = this.cellRects[idx];
+
+      if (spriteBase && spriteBase.visible) {
+        allSprites.push(spriteBase);
+      }
 
       if (sprite && sprite.visible) {
         allSprites.push(sprite);
@@ -1688,7 +1694,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       }
 
       const next = this.board[ny][nx];
-      if (!next || next.type === tile.type) {
+      if (!next || (next.type === tile.type && tile.type !== "coffee")) {
         return true;
       }
     }
@@ -1759,6 +1765,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     }
 
     const idx = icePos.y * this.gridSize + icePos.x;
+    const spriteBase = this.tileSpritesBase[idx];
     const sprite = this.tileSprites[idx];
     const center = this.getCellCenter(icePos.x, icePos.y);
 
@@ -1767,13 +1774,14 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     const origX = sprite.x;
 
     this.tweens.add({
-      targets: sprite,
+      targets: [spriteBase, sprite],
       x: origX + 4,
       duration: 50,
       yoyo: true,
       repeat: 7,
       ease: "Sine.easeInOut",
       onComplete: () => {
+        spriteBase.x = origX;
         sprite.x = origX;
 
         const drip1 = this.add.circle(center.x - 10, center.y + 10, 5, 0x79ddff, 0.85).setDepth(240);
@@ -1796,7 +1804,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
         });
 
         this.tweens.add({
-          targets: sprite,
+          targets: [spriteBase, sprite],
           scaleX: 0,
           scaleY: 0,
           alpha: 0,
@@ -1805,6 +1813,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
           onComplete: () => {
             this.board[icePos.y][icePos.x] = null;
             this.freezeTurns[icePos.y][icePos.x] = 0;
+            spriteBase.setVisible(false).setAlpha(0.6).setScale(1);
             sprite.setVisible(false).setAlpha(1).setScale(1);
             this.refreshAll();
             onDone();
@@ -1878,16 +1887,14 @@ export class OverheatPuzzleScene extends Phaser.Scene {
         const tile = this.board[y][x];
 
         const rect = this.cellRects[idx];
-        const slotFill = this.slotFillRects[idx];
-        const slotFillCap = this.slotFillCaps[idx];
+        const spriteBase = this.tileSpritesBase[idx];
         const sprite = this.tileSprites[idx];
         const freezeText = this.freezeTexts[idx];
 
         if (!tile) {
           rect.setFillStyle(0x1c2a36, 1);
           rect.setStrokeStyle(2, 0x395365, 1);
-          slotFill.setVisible(false);
-          slotFillCap.setVisible(false);
+          spriteBase.setVisible(false);
           sprite.setVisible(false);
           freezeText.setText("");
           continue;
@@ -1898,32 +1905,32 @@ export class OverheatPuzzleScene extends Phaser.Scene {
         rect.setStrokeStyle(2, color, 1);
 
         const threshold = this.burstThresholds[tile.type] || 6;
-        const charge = tile.charge || 0;
-        const cap = this.getChargeCapForType(tile.type);
-        const ratio = Phaser.Math.Clamp(charge / cap, 0, 1);
-        const maxHeight = this.cellSize - 16;
-        const minVisibleHeight = 10;
-        const height = ratio > 0 ? Math.max(minVisibleHeight, maxHeight * ratio) : 0;
-        const fillY = this.boardY + y * this.cellSize + this.cellSize - 6;
+        let ratio;
 
-        if (height <= 0) {
-          slotFill.setVisible(false);
-          slotFillCap.setVisible(false);
+        if (tile.type === "ice") {
+          ratio = Phaser.Math.Clamp(this.iceCore / this.iceCoreMax, 0, 1);
         } else {
-          slotFill.setVisible(true);
-          slotFill.setPosition(this.boardX + x * this.cellSize + 4, fillY);
-          slotFill.setFillStyle(color, 0.78);
-          slotFill.setDisplaySize(this.cellSize - 16, height);
-          slotFill.setDepth(sprite.depth + 1);
-
-          slotFillCap.setVisible(true);
-          slotFillCap.setPosition(this.boardX + x * this.cellSize + 4, fillY - height + 2);
-          slotFillCap.setDisplaySize(this.cellSize - 16, 2);
-          slotFillCap.setFillStyle(0xffffff, 0.95);
-          slotFillCap.setDepth(sprite.depth + 2);
+          const charge = tile.charge || 0;
+          const cap = this.getChargeCapForType(tile.type);
+          ratio = Phaser.Math.Clamp(charge / cap, 0, 1);
         }
 
+        this.placeTileSprite(spriteBase, tile.type);
         this.placeTileSprite(sprite, tile.type);
+
+        const source = sprite.texture.getSourceImage();
+        const sourceHeight = source.height || 1;
+        const sourceWidth = source.width || 1;
+
+        if (ratio <= 0) {
+          sprite.setVisible(false);
+        } else {
+          sprite.setVisible(true);
+          const cropHeight = Math.max(1, sourceHeight * ratio);
+          const cropY = sourceHeight - cropHeight;
+          sprite.setCrop(0, cropY, sourceWidth, cropHeight);
+        }
+
         freezeText.setText(this.freezeTurns[y][x] > 0 ? "F" : "");
       }
     }
@@ -1967,13 +1974,53 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       return;
     }
 
+    // Consolidate multi-step moves into single smooth animations per tile.
+    // Each pass of slideAndMerge generates 1-cell steps; we merge them so a
+    // tile that travels 3 cells gets ONE fluid tween instead of 3 choppy ones.
+    const consolidated = new Map();
+
+    moving.forEach((action) => {
+      const key = `${action.toX},${action.toY}`;
+      const fromKey = `${action.fromX},${action.fromY}`;
+
+      // Check if a previous action ended where this one starts
+      let origin = null;
+      for (const [k, entry] of consolidated) {
+        if (k === fromKey) {
+          origin = entry;
+          break;
+        }
+      }
+
+      if (origin) {
+        // Extend: keep the original start, update destination
+        consolidated.delete(`${origin.toX},${origin.toY}`);
+        consolidated.set(key, {
+          type: action.type,
+          fromX: origin.fromX,
+          fromY: origin.fromY,
+          toX: action.toX,
+          toY: action.toY,
+          merge: action.merge || origin.merge,
+        });
+      } else {
+        consolidated.set(key, { ...action });
+      }
+    });
+
+    const smoothMoves = Array.from(consolidated.values());
+
+    this.tileSpritesBase.forEach((sprite) => {
+      sprite.setAlpha(0.2);
+    });
+
     this.tileSprites.forEach((sprite) => {
       sprite.setAlpha(0.45);
     });
 
     let completed = 0;
 
-    moving.forEach((action) => {
+    smoothMoves.forEach((action) => {
       const from = this.getCellCenter(action.fromX, action.fromY);
       const to = this.getCellCenter(action.toX, action.toY);
 
@@ -1982,18 +2029,26 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       const ratio = Math.min(54 / (source.width || 1), 66 / (source.height || 1));
       temp.setScale(ratio);
 
+      // Scale duration by distance so longer slides feel natural
+      const dist = Math.abs(action.toX - action.fromX) + Math.abs(action.toY - action.fromY);
+      const duration = 120 + dist * 40;
+
       this.tweens.add({
         targets: temp,
         x: to.x,
         y: to.y,
         angle: action.merge ? (action.fromX !== action.toX ? (action.fromX < action.toX ? 20 : -20) : (action.fromY < action.toY ? 20 : -20)) : 0,
-        duration: 150,
-        ease: "Quad.easeIn",
+        duration,
+        ease: "Cubic.easeOut",
         onComplete: () => {
           completed += 1;
           temp.destroy();
 
-          if (completed === moving.length) {
+          if (completed === smoothMoves.length) {
+            this.tileSpritesBase.forEach((sprite) => {
+              sprite.setAlpha(0.6);
+            });
+
             this.tileSprites.forEach((sprite) => {
               sprite.setAlpha(1);
             });
