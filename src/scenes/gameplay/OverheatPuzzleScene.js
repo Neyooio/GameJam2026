@@ -505,6 +505,9 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       this.updateIceFillFromMerges(result.merges);
       this.chargeScoreFromMerges(result.merges, 1);
 
+      // Force visual state refresh so all charge bars are correctly filled and score updates BEFORE bursts triggers
+      this.refreshAll();
+
       const bursts = this.collectBurstTriggers(result.merges);
       this.resolveBurstQueue(bursts, () => {
         this.spawnOneTile();
@@ -597,8 +600,13 @@ export class OverheatPuzzleScene extends Phaser.Scene {
 
   resolveBurstQueue(queue, onComplete, playedCutIns = new Set()) {
     if (!queue.length) {
-      onComplete();
-      return;
+      const extraBursts = this.collectBurstTriggers([]);
+      if (extraBursts.length > 0) {
+        queue = extraBursts;
+      } else {
+        onComplete();
+        return;
+      }
     }
 
     const burst = queue.shift();
@@ -1948,9 +1956,14 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     const moving = actions.filter((action) => action.fromX !== action.toX || action.fromY !== action.toY);
     if (!moving.length) {
       if (merges.length) {
-        this.pulseMergedSlots(merges);
+        this.pulseMergedSlots(merges, () => {
+          this.refreshAll();
+          onComplete();
+        });
+      } else {
+        this.refreshAll();
+        onComplete();
       }
-      onComplete();
       return;
     }
 
@@ -1973,8 +1986,9 @@ export class OverheatPuzzleScene extends Phaser.Scene {
         targets: temp,
         x: to.x,
         y: to.y,
+        angle: action.merge ? (action.fromX !== action.toX ? (action.fromX < action.toX ? 20 : -20) : (action.fromY < action.toY ? 20 : -20)) : 0,
         duration: 150,
-        ease: "Quad.easeOut",
+        ease: "Quad.easeIn",
         onComplete: () => {
           completed += 1;
           temp.destroy();
@@ -1985,33 +1999,58 @@ export class OverheatPuzzleScene extends Phaser.Scene {
             });
 
             if (merges.length) {
-              this.pulseMergedSlots(merges);
+              this.pulseMergedSlots(merges, () => {
+                this.refreshAll();
+                onComplete();
+              });
+            } else {
+              this.refreshAll();
+              onComplete();
             }
-            onComplete();
           }
         },
       });
     });
   }
 
-  pulseMergedSlots(merges) {
+  pulseMergedSlots(merges, onDone) {
     this.cameras.main.shake(80, 0.002);
 
     merges.forEach((merge) => {
       const idx = merge.y * this.gridSize + merge.x;
       const rect = this.cellRects[idx];
-      if (!rect) {
-        return;
+      const sprite = this.tileSprites[idx];
+
+      if (rect) {
+        this.tweens.add({
+          targets: rect,
+          scaleX: 1.06,
+          scaleY: 1.06,
+          duration: 80,
+          yoyo: true,
+          ease: "Sine.easeInOut",
+        });
       }
 
-      this.tweens.add({
-        targets: rect,
-        scaleX: 1.06,
-        scaleY: 1.06,
-        duration: 80,
-        yoyo: true,
-        ease: "Sine.easeInOut",
-      });
+      if (sprite) {
+        sprite.setAngle(0);
+        this.tweens.add({
+          targets: sprite,
+          angle: 18,
+          scaleX: sprite.scaleX * 1.15,
+          scaleY: sprite.scaleY * 1.15,
+          duration: 80,
+          yoyo: true,
+          ease: "Sine.easeInOut",
+          onComplete: () => {
+            sprite.setAngle(0);
+          }
+        });
+      }
+    });
+
+    this.time.delayedCall(160, () => {
+      if (onDone) onDone();
     });
   }
 
