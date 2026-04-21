@@ -48,7 +48,7 @@ export class MainMenuScene extends Phaser.Scene {
     });
 
     this.startBackgroundMotion();
-  this.createAnimatedTitle();
+    this.createAnimatedTitle();
 
     this.addOverlayUI();
     this.addCrtOverlay();
