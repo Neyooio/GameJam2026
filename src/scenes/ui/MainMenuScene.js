@@ -62,6 +62,8 @@ export class MainMenuScene extends Phaser.Scene {
     this.addOverlayUI();
     this.addCrtOverlay();
 
+    this.createWireSparks();
+
     this.updateHumanVisualState();
     this.scheduleNextSwitch();
 
@@ -70,6 +72,10 @@ export class MainMenuScene extends Phaser.Scene {
       if (this.nextSwitchEvent) {
         this.nextSwitchEvent.remove(false);
         this.nextSwitchEvent = null;
+      }
+      if (this.sparkTimer) {
+        this.sparkTimer.remove(false);
+        this.sparkTimer = null;
       }
       this.tweens.killTweensOf(this.backgroundDriftStates);
       this.backgroundDriftStates = [];
@@ -125,6 +131,55 @@ export class MainMenuScene extends Phaser.Scene {
       onComplete: () => {
         this.createBackgroundDriftTween(state, index);
       },
+    });
+  }
+
+  createWireSparks() {
+    this.sparkTimer = this.time.addEvent({
+      delay: Phaser.Math.Between(12000, 20000),
+      loop: true,
+      callback: () => {
+        if (!this.scene.isActive()) return;
+        
+        // Randomize next delay for 3-5 times a minute
+        this.sparkTimer.delay = Phaser.Math.Between(12000, 20000);
+        
+        const { width, height } = this.scale;
+        // Wires are generally on the right side
+        const x = width * Phaser.Math.FloatBetween(0.85, 0.98);
+        const y = height * Phaser.Math.FloatBetween(0.1, 0.9);
+        
+        // Create small particle-like sparks that shoot out
+        const sparkCount = Phaser.Math.Between(8, 15);
+        for (let i = 0; i < sparkCount; i++) {
+          const size = Phaser.Math.Between(1, 2);
+          const color = Math.random() > 0.4 ? 0xffffff : 0xffaa44;
+          const spark = this.add.rectangle(x, y, size, size, color)
+            .setDepth(48);
+            
+          const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+          const speed = Phaser.Math.FloatBetween(15, 40); // Slower movement
+          const targetX = x + Math.cos(angle) * speed;
+          const targetY = y + Math.sin(angle) * speed + 40; // Add simulated gravity downward
+            
+          this.tweens.add({
+            targets: spark,
+            x: targetX,
+            y: targetY,
+            alpha: 0,
+            rotation: Phaser.Math.FloatBetween(-Math.PI * 2, Math.PI * 2),
+            duration: Phaser.Math.Between(800, 1600), // Slower fade out
+            ease: 'Sine.easeOut',
+            onComplete: () => {
+              if (spark) spark.destroy();
+            }
+          });
+        }
+        
+        if (this.cache.audio.exists("staticSfx")) {
+          this.sound.play("staticSfx", { volume: Phaser.Math.FloatBetween(0.08, 0.2) });
+        }
+      }
     });
   }
 

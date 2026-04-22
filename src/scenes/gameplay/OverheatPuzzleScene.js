@@ -152,33 +152,112 @@ export class OverheatPuzzleScene extends Phaser.Scene {
   }
 
   createLayout() {
-    const { width } = this.scale;
-    this.cameras.main.setBackgroundColor("#0e1620");
+    const { width, height } = this.scale;
+    this.add.image(width / 2, height / 2, "bgVendingMachine").setDisplaySize(width, height).setDepth(-100);
 
     const title = this.tutorialMode ? "FREEZE MERGE - TUTORIAL" : "FREEZE MERGE";
 
     this.add
-      .text(width * 0.5, 22, title, {
+      .text(249, 26, title, {
         fontFamily: "Yoster",
         fontSize: "30px",
-        color: "#ecf4ff",
+        color: "#ffffff",
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setStroke("#000000", 6)
+      .setShadow(2, 2, "#000000", 0, true, false);
 
     this.add
-      .text(width * 0.5, 52, "Slide with Arrow keys or on-screen controls. Same drinks merge and charge slots.", {
+      .text(249, 65, "Slide with Arrow keys or on-screen controls.\nSame drinks merge and charge slots.", {
         fontFamily: "Yoster",
-        fontSize: "12px",
-        color: "#9fb4c8",
+        fontSize: "13px",
+        color: "#ffffff",
+        align: "center",
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setStroke("#000000", 4)
+      .setShadow(1, 1, "#000000", 0, true, false);
 
     this.createBoardViews();
     this.createRightPanel();
     this.createControls();
     this.createCutInOverlay();
 
+    this.addWireSparks();
+    this.addRedLightGlow();
+
     this.setMessage("Merge same drinks to fill slot colors. Full slot triggers Freshen Up and bursts.");
+  }
+
+  addWireSparks() {
+    // The wires are located on the far right edge of the vending machine.
+    // Approximate bounding boxes for the top and bottom wire sets based on the background art:
+    const wireAreas = [
+      { minX: 890, maxX: 930, minY: 280, maxY: 330 },
+      { minX: 890, maxX: 930, minY: 440, maxY: 490 }
+    ];
+
+    this.time.addEvent({
+      delay: 250,
+      loop: true,
+      callback: () => {
+        // 40% chance to spawn a spark every 250ms
+        if (Phaser.Math.FloatBetween(0, 1) < 0.4) {
+          const area = Phaser.Utils.Array.GetRandom(wireAreas);
+          const x = Phaser.Math.Between(area.minX, area.maxX);
+          const y = Phaser.Math.Between(area.minY, area.maxY);
+
+          // Create a bright white/blue spark
+          const spark = this.add.rectangle(x, y, Phaser.Math.Between(2, 4), Phaser.Math.Between(2, 4), 0xffffff).setDepth(20);
+
+          // Spark physics and fade
+          this.tweens.add({
+            targets: spark,
+            alpha: 0,
+            scaleX: Phaser.Math.FloatBetween(0.5, 2),
+            scaleY: Phaser.Math.FloatBetween(0.5, 2),
+            y: y + Phaser.Math.Between(10, 25), // Falls downwards due to gravity
+            x: x + Phaser.Math.Between(-15, 15),
+            duration: Phaser.Math.Between(150, 450),
+            ease: "Power1",
+            onComplete: () => spark.destroy()
+          });
+
+          // Add a quick, brief electrical blue glow behind it
+          const glow = this.add.circle(x, y, Phaser.Math.Between(6, 12), 0x79ddff, 0.8).setDepth(19);
+          this.tweens.add({
+            targets: glow,
+            alpha: 0,
+            scale: 1.5,
+            duration: Phaser.Math.Between(100, 250),
+            onComplete: () => glow.destroy()
+          });
+        }
+      }
+    });
+  }
+
+  addRedLightGlow() {
+    const { width } = this.scale;
+    // Moved slightly down and slightly to the right side
+    const lightX = width * 0.5 + 30; // Moving right (+15 pixels)
+    const lightY = 70; // Moving down (+17 pixels)
+
+    // A soft red outer glow
+    const outerGlow = this.add.circle(lightX, lightY, 24, 0xff0000, 0.25).setDepth(-99);
+    // A slightly brighter, smaller inner core
+    const innerGlow = this.add.circle(lightX, lightY, 8, 0xff4444, 0.4).setDepth(-99);
+
+    // Smoothly pulse the alpha and scale of both circles
+    this.tweens.add({
+      targets: [outerGlow, innerGlow],
+      alpha: { getStart: () => 0.1, getEnd: () => 0.5 },
+      scale: { getStart: () => 0.85, getEnd: () => 1.15 },
+      duration: 2000,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
   }
 
   createBoardViews() {
@@ -213,7 +292,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
         const spriteBase = this.add
           .image(px + (this.cellSize - 8) * 0.5, py + (this.cellSize - 8) * 0.5, "propWater")
           .setTint(0x999999)
-          .setAlpha(0.95)
+          .setAlpha(1)
           .setVisible(false);
 
         // Sprite on top that gets cropped bottom-to-top as charge fills up
@@ -242,20 +321,25 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     const { width } = this.scale;
     const panelX = width * 0.73;
 
-    this.add.rectangle(panelX, 245, 245, 375, 0x152532, 0.65).setStrokeStyle(2, 0x355064, 1);
+    this.add.rectangle(panelX, 245, 245, 375, 0x152532, 1).setStrokeStyle(2, 0x355064, 1);
 
     // Customer Window
     this.add.rectangle(panelX, 110, 220, 95, 0x111b24, 1).setStrokeStyle(2, 0x395365, 1);
-    
-    this.customerSprite = this.add.image(panelX - 55, 110, "charStudent").setVisible(false).setDepth(8);
+
+    this.customerSpriteBaseY = 66;
+    this.customerSpriteBaseX = panelX - 55;
+    this.customerSpriteStartX = panelX + 55;
+    this.customerSprite = this.add.image(this.customerSpriteBaseX, this.customerSpriteBaseY, "charStudent").setVisible(false).setDepth(8).setOrigin(0.5, 0);
     const src = this.customerSprite.texture.getSourceImage();
     if (src && src.height) {
-      this.customerSprite.setScale(85 / src.height);
+      const halfHeight = src.height * 0.55;
+      this.customerSprite.setCrop(0, 0, src.width, halfHeight);
+      this.customerSprite.setScale(90 / halfHeight);
     } else {
-      this.customerSprite.setScale(0.2);
+      this.customerSprite.setScale(0.3);
     }
 
-    this.customerBubble = this.add.rectangle(panelX + 35, 100, 120, 50, 0xffffff, 0.9).setStrokeStyle(2, 0x000000, 1).setVisible(false).setDepth(9);
+    this.customerBubble = this.add.rectangle(panelX + 35, 100, 120, 50, 0xffffff, 1).setStrokeStyle(2, 0x000000, 1).setVisible(false).setDepth(9);
     this.customerText = this.add.text(panelX + 35, 100, "", {
       fontFamily: "Yoster",
       fontSize: "11px",
@@ -641,7 +725,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     }
 
     const burst = queue.shift();
-    
+
     const runBurstLogic = () => {
       this.playBurstPreShake(burst, () => {
         const afterPreShake = () => {
@@ -1268,21 +1352,17 @@ export class OverheatPuzzleScene extends Phaser.Scene {
 
   spawnCustomer() {
     this.customerActive = true;
-    
+
     const drinks = ["water", "juice", "tea", "cola", "coffee"];
     this.customerWantedType = Phaser.Utils.Array.GetRandom(drinks);
 
-    // Ensure scaling
-    const src = this.customerSprite.texture.getSourceImage();
-    if (src && src.height) {
-      this.customerSprite.setScale(90 / src.height);
-    } else {
-      this.customerSprite.setScale(0.2);
-    }
+    // Scaling is now handled statically in createRightPanel
+    this.customerSprite.x = this.customerSpriteStartX || (this.customerSpriteBaseX + 110);
+    this.customerSprite.y = this.customerSpriteBaseY || 66;
 
     this.customerSprite.setVisible(true).setAlpha(0);
-    this.customerBubble.setVisible(true).setAlpha(0).setScale(0);
-    this.customerText.setVisible(true).setAlpha(0).setScale(0);
+    this.customerBubble.setVisible(false).setAlpha(0).setScale(0);
+    this.customerText.setVisible(false).setAlpha(0).setScale(0);
 
     const drinkNames = {
       water: "Water",
@@ -1300,14 +1380,42 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       duration: 300,
     });
 
+    if (this.customerBobTween) {
+      this.customerBobTween.stop();
+    }
+
+    // Bobbing tween (walk animation) - runs for 1200ms
+    this.customerBobTween = this.tweens.add({
+      targets: this.customerSprite,
+      y: (this.customerSpriteBaseY || 66) - 4,
+      duration: 150,
+      yoyo: true,
+      repeat: 3,
+      ease: "Sine.easeInOut",
+      onComplete: () => {
+        this.customerSprite.y = this.customerSpriteBaseY || 66;
+        this.customerBobTween = null;
+      }
+    });
+
+    // Walk-in tween (X movement)
     this.tweens.add({
-      targets: [this.customerBubble, this.customerText],
-      alpha: 1,
-      scaleX: 1,
-      scaleY: 1,
-      duration: 300,
-      ease: "Back.easeOut",
-      delay: 200,
+      targets: this.customerSprite,
+      x: this.customerSpriteBaseX || (this.customerSprite.x - 110),
+      duration: 1200,
+      ease: "Linear",
+      onComplete: () => {
+        this.customerBubble.setVisible(true);
+        this.customerText.setVisible(true);
+        this.tweens.add({
+          targets: [this.customerBubble, this.customerText],
+          alpha: 1,
+          scaleX: 1,
+          scaleY: 1,
+          duration: 300,
+          ease: "Back.easeOut",
+        });
+      }
     });
   }
 
@@ -1333,6 +1441,10 @@ export class OverheatPuzzleScene extends Phaser.Scene {
           this.customerSprite.setVisible(false);
           this.customerBubble.setVisible(false);
           this.customerText.setVisible(false);
+          if (this.customerBobTween) {
+            this.customerBobTween.stop();
+            this.customerBobTween = null;
+          }
         }
       });
     });
@@ -1941,7 +2053,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
             this.board[icePos.y][icePos.x] = null;
             this.freezeTurns[icePos.y][icePos.x] = 0;
             strokes.forEach(s => s.setVisible(false).setAlpha(0.6).setScale(1));
-            spriteBase.setVisible(false).setAlpha(0.95).setScale(1);
+            spriteBase.setVisible(false).setAlpha(1).setScale(1);
             sprite.setVisible(false).setAlpha(1).setScale(1);
             this.refreshAll();
             onDone();
@@ -2031,7 +2143,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
         }
 
         const color = this.productColors[tile.type] || 0x8fa7ba;
-        rect.setFillStyle(color, 0.16);
+        rect.setFillStyle(0x1c2a36, 1);
         rect.setStrokeStyle(2, color, 1);
 
         const threshold = this.burstThresholds[tile.type] || 6;
@@ -2136,12 +2248,13 @@ export class OverheatPuzzleScene extends Phaser.Scene {
 
     const smoothMoves = Array.from(consolidated.values());
 
-    this.tileSpritesBase.forEach((sprite) => {
-      sprite.setAlpha(0.2);
-    });
-
-    this.tileSprites.forEach((sprite) => {
-      sprite.setAlpha(0.45);
+    smoothMoves.forEach((action) => {
+      const idx = action.fromY * this.gridSize + action.fromX;
+      if (this.tileSpritesBase[idx]) this.tileSpritesBase[idx].setVisible(false);
+      if (this.tileSprites[idx]) this.tileSprites[idx].setVisible(false);
+      if (this.tileSpritesStrokes[idx]) {
+        this.tileSpritesStrokes[idx].forEach((s) => s.setVisible(false));
+      }
     });
 
     let completed = 0;
@@ -2170,14 +2283,6 @@ export class OverheatPuzzleScene extends Phaser.Scene {
           temp.destroy();
 
           if (completed === smoothMoves.length) {
-            this.tileSpritesBase.forEach((sprite) => {
-              sprite.setAlpha(0.85);
-            });
-
-            this.tileSprites.forEach((sprite) => {
-              sprite.setAlpha(1);
-            });
-
             if (merges.length) {
               this.pulseMergedSlots(merges);
             }
