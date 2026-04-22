@@ -35,7 +35,7 @@ export class BootScene extends Phaser.Scene {
       try {
         await document.fonts.load('16px "Yoster"');
         await document.fonts.ready;
-      } catch (error) {
+      } catch {
         // Continue boot even if the Font Loading API fails.
       }
     }

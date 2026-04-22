@@ -64,10 +64,6 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     ];
 
     this.cellRects = [];
-    this.slotFillRects = [];
-    this.slotFillGlows = [];
-    this.slotFillShines = [];
-    this.slotFillCaps = [];
     this.tileSprites = [];
     this.freezeTexts = [];
 
@@ -115,14 +111,62 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     this.bindInput();
     this.initializeGameplayAudio();
 
-    this.spawnInitialTile();
-    this.ensureInitialIceTile();
-    this.normalizeIceState();
-    this.ensureInitialIceTile();
-    this.refreshAll();
+    this.ensureStartupIceTileVisible();
+
+    // Safety pass on the next tick in case another startup flow touched board visuals.
+    this.time.delayedCall(0, () => {
+      if (this.sys && this.sys.isActive()) {
+        this.ensureStartupIceTileVisible();
+      }
+    });
   }
 
-  update(time, delta) {
+  ensureStartupIceTileVisible() {
+    this.ensureInitialIceTile();
+    this.normalizeIceState();
+
+    let icePos = null;
+    for (let y = 0; y < this.gridSize; y += 1) {
+      for (let x = 0; x < this.gridSize; x += 1) {
+        const tile = this.board[y][x];
+        if (tile && tile.type === "ice") {
+          icePos = { x, y };
+          break;
+        }
+      }
+      if (icePos) {
+        break;
+      }
+    }
+
+    if (!icePos) {
+      this.board[0][0] = { type: "ice", tier: 1, charge: 0 };
+      this.freezeTurns[0][0] = 0;
+      icePos = { x: 0, y: 0 };
+    }
+
+    if (this.iceCore <= 0) {
+      this.iceCore = this.iceCoreMax;
+    }
+
+    this.refreshAll();
+
+    // Explicitly force the startup ice tile sprite visible after refresh.
+    const idx = icePos.y * this.gridSize + icePos.x;
+    const spriteBase = this.tileSpritesBase[idx];
+    const sprite = this.tileSprites[idx];
+    if (!spriteBase || !sprite) {
+      return;
+    }
+
+    this.placeTileSprite(spriteBase, "ice");
+    this.placeTileSprite(sprite, "ice");
+    spriteBase.setAlpha(0.6).setVisible(true).setAngle(0).setScale(sprite.scaleX, sprite.scaleY);
+    sprite.setAlpha(1).setVisible(true).setAngle(0);
+    sprite.setCrop();
+  }
+
+  update() {
     if (this.cutIn && this.cutIn.sprite && this.cutIn.sprite.visible && this.cutIn.spriteShadow) {
       this.cutIn.spriteShadow.setVisible(true);
       this.cutIn.spriteShadow.x = this.cutIn.sprite.x + 12;
@@ -692,28 +736,16 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     });
   }
 
-  spawnInitialTile() {
-    if (this.hasAnyIceTile()) {
-      return;
-    }
-
-    const spawned = this.spawnOneTile("ice");
-    if (spawned) {
-      return;
-    }
-
-    const empties = this.getEmptyCells();
-    if (!empties.length) {
-      return;
-    }
-
-    const { x, y } = empties[0];
-    this.board[y][x] = { type: "ice", tier: 1, charge: 0 };
-    this.freezeTurns[y][x] = 0;
-  }
-
   ensureInitialIceTile() {
     if (this.hasAnyIceTile()) {
+      if (this.iceCore <= 0) {
+        this.iceCore = this.iceCoreMax;
+      }
+      return;
+    }
+
+    if (this.spawnOneTile("ice")) {
+      this.iceCore = this.iceCoreMax;
       return;
     }
 
@@ -722,11 +754,13 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       const { x, y } = empties[0];
       this.board[y][x] = { type: "ice", tier: 1, charge: 0 };
       this.freezeTurns[y][x] = 0;
+      this.iceCore = this.iceCoreMax;
       return;
     }
 
     this.board[0][0] = { type: "ice", tier: 1, charge: 0 };
     this.freezeTurns[0][0] = 0;
+    this.iceCore = this.iceCoreMax;
   }
 
   refillSpawnBag() {
@@ -2323,8 +2357,24 @@ export class OverheatPuzzleScene extends Phaser.Scene {
   }
 
   refreshAll() {
+    if (!this.hasAnyTile()) {
+      this.ensureInitialIceTile();
+    }
+
     this.refreshBoardView();
     this.refreshHud();
+  }
+
+  hasAnyTile() {
+    for (let y = 0; y < this.gridSize; y += 1) {
+      for (let x = 0; x < this.gridSize; x += 1) {
+        if (this.board[y][x]) {
+          return true;
+        }
+      }
+    }
+
+    return false;
   }
 
   refreshBoardView() {
@@ -2357,7 +2407,6 @@ export class OverheatPuzzleScene extends Phaser.Scene {
         rect.setFillStyle(color, 0.16);
         rect.setStrokeStyle(2, color, 1);
 
-        const threshold = this.burstThresholds[tile.type] || 6;
         let ratio;
 
         if (tile.type === "ice") {
@@ -2480,13 +2529,27 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     this.refreshBoardView();
     smoothMoves.forEach((action) => {
       const idx = action.toY * this.gridSize + action.toX;
+      const rect = this.cellRects[idx];
+      const strokes = this.tileSpritesStrokes[idx];
       const spriteBase = this.tileSpritesBase[idx];
       const sprite = this.tileSprites[idx];
+      const freezeText = this.freezeTexts[idx];
+
+      if (rect) {
+        rect.setFillStyle(0x1c2a36, 1);
+        rect.setStrokeStyle(2, 0x395365, 1);
+      }
+      if (strokes) {
+        strokes.forEach((s) => s.setVisible(false));
+      }
       if (spriteBase) {
         spriteBase.setVisible(false);
       }
       if (sprite) {
         sprite.setVisible(false);
+      }
+      if (freezeText) {
+        freezeText.setText("");
       }
     });
 
@@ -2499,43 +2562,85 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     });
 
     let completed = 0;
+    const moveBatchSprites = [];
 
     smoothMoves.forEach((action) => {
       const from = this.getCellCenter(action.fromX, action.fromY);
       const to = this.getCellCenter(action.toX, action.toY);
 
+      const tempBase = this.add
+        .image(from.x, from.y, this.itemSpriteKeys[action.type])
+        .setDepth(219)
+        .setTint(0x7a8794)
+        .setAlpha(0.42);
       const temp = this.add.image(from.x, from.y, this.itemSpriteKeys[action.type]).setDepth(220);
+      const tempStrokes = [];
+      const strokeOffsets = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+      for (let i = 0; i < strokeOffsets.length; i += 1) {
+        const sx = strokeOffsets[i][0];
+        const sy = strokeOffsets[i][1];
+        const stroke = this.add
+          .image(from.x + sx, from.y + sy, this.itemSpriteKeys[action.type])
+          .setDepth(219)
+          .setTint(0x8da1b3)
+          .setAlpha(0.34);
+        tempStrokes.push(stroke);
+      }
+
       const source = temp.texture.getSourceImage();
       const ratio = Math.min(54 / (source.width || 1), 66 / (source.height || 1));
       temp.setScale(ratio);
+      tempBase.setScale(ratio);
+      tempStrokes.forEach((stroke) => {
+        stroke.setScale(ratio);
+      });
 
       const tempFillRatio = Phaser.Math.Clamp(action.fillRatio ?? 0, 0, 1);
       if (tempFillRatio <= 0) {
-        // Unfilled tiles still glide as dim silhouettes so movement remains natural.
-        temp.setVisible(true);
-        temp.setCrop(0, 0, source.width || 1, source.height || 1);
-        temp.setAlpha(0.45);
-        temp.setTint(0x7a8794);
+        // Keep full silhouette moving; hide fill when charge is empty.
+        temp.setVisible(false);
+        temp.setCrop();
+        tempStrokes.forEach((stroke) => {
+          stroke.setCrop();
+          stroke.setAlpha(0.3);
+        });
       } else if (tempFillRatio < 1) {
         const sourceHeight = source.height || 1;
         const sourceWidth = source.width || 1;
         const cropHeight = Math.max(1, sourceHeight * tempFillRatio);
         const cropY = sourceHeight - cropHeight;
+        temp.setVisible(true);
         temp.setCrop(0, cropY, sourceWidth, cropHeight);
         temp.setAlpha(0.94);
+        temp.clearTint();
+        tempStrokes.forEach((stroke) => {
+          stroke.setCrop();
+          stroke.setAlpha(0.34);
+        });
       } else {
+        temp.setVisible(true);
+        temp.setCrop();
         temp.clearTint();
         temp.setAlpha(1);
+        tempStrokes.forEach((stroke) => {
+          stroke.setCrop();
+          stroke.setAlpha(0.34);
+        });
       }
 
+      this.activeMoveSprites.push(tempBase);
       this.activeMoveSprites.push(temp);
+      tempStrokes.forEach((stroke) => {
+        this.activeMoveSprites.push(stroke);
+      });
+      moveBatchSprites.push(tempBase, temp, ...tempStrokes);
 
       // Use physical distance to keep speed consistent and give motion a floatier cadence.
       const pixelDistance = Phaser.Math.Distance.Between(from.x, from.y, to.x, to.y);
       const duration = Phaser.Math.Clamp(Math.round(145 + pixelDistance * 0.9), 180, 420);
 
       this.tweens.add({
-        targets: temp,
+        targets: [tempBase, temp, ...tempStrokes],
         scaleX: ratio * 0.95,
         scaleY: ratio * 1.05,
         duration: Math.round(duration * 0.55),
@@ -2544,7 +2649,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       });
 
       this.tweens.add({
-        targets: temp,
+        targets: [tempBase, temp, ...tempStrokes],
         x: to.x,
         y: to.y,
         angle: action.merge ? (action.fromX !== action.toX ? (action.fromX < action.toX ? 20 : -20) : (action.fromY < action.toY ? 20 : -20)) : 0,
@@ -2552,14 +2657,28 @@ export class OverheatPuzzleScene extends Phaser.Scene {
         ease: "Cubic.easeInOut",
         onComplete: () => {
           completed += 1;
-          const activeIdx = this.activeMoveSprites.indexOf(temp);
-          if (activeIdx >= 0) {
-            this.activeMoveSprites.splice(activeIdx, 1);
-          }
-          temp.destroy();
+
+          // Keep finished movers visible at destination until every mover is done.
+          // This avoids brief "vanish" gaps when short moves finish before long ones.
+          [tempBase, temp, ...tempStrokes].forEach((obj) => {
+            if (obj && obj.active) {
+              obj.setAngle(0);
+            }
+          });
 
           if (completed === smoothMoves.length) {
             this.isSlideAnimating = false;
+
+            moveBatchSprites.forEach((obj) => {
+              const activeIdx = this.activeMoveSprites.indexOf(obj);
+              if (activeIdx >= 0) {
+                this.activeMoveSprites.splice(activeIdx, 1);
+              }
+              if (obj && obj.active) {
+                obj.destroy();
+              }
+            });
+
             this.refreshBoardView();
 
             if (merges.length) {
