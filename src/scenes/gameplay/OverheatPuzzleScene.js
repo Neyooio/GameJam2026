@@ -197,44 +197,45 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       { minX: 890, maxX: 930, minY: 440, maxY: 490 }
     ];
 
-    this.time.addEvent({
-      delay: 250,
-      loop: true,
-      callback: () => {
-        // 40% chance to spawn a spark every 250ms
-        if (Phaser.Math.FloatBetween(0, 1) < 0.4) {
-          const area = Phaser.Utils.Array.GetRandom(wireAreas);
-          const x = Phaser.Math.Between(area.minX, area.maxX);
-          const y = Phaser.Math.Between(area.minY, area.maxY);
+    const spawnSparkBurst = () => {
+      // Safety check in case scene was destroyed
+      if (!this.sys || !this.sys.game || !this.add || !this.time) return;
 
-          // Create a bright white/blue spark
-          const spark = this.add.rectangle(x, y, Phaser.Math.Between(2, 4), Phaser.Math.Between(2, 4), 0xffffff).setDepth(20);
+      const area = Phaser.Utils.Array.GetRandom(wireAreas);
+      const x = Phaser.Math.Between(area.minX, area.maxX);
+      const y = Phaser.Math.Between(area.minY, area.maxY);
 
-          // Spark physics and fade
-          this.tweens.add({
-            targets: spark,
-            alpha: 0,
-            scaleX: Phaser.Math.FloatBetween(0.5, 2),
-            scaleY: Phaser.Math.FloatBetween(0.5, 2),
-            y: y + Phaser.Math.Between(10, 25), // Falls downwards due to gravity
-            x: x + Phaser.Math.Between(-15, 15),
-            duration: Phaser.Math.Between(150, 450),
-            ease: "Power1",
-            onComplete: () => spark.destroy()
-          });
+      const sparkCount = Phaser.Math.Between(8, 15);
+      for (let i = 0; i < sparkCount; i++) {
+        const sparkSize = Phaser.Math.Between(1, 3);
+        const color = Math.random() > 0.4 ? 0xffffff : 0x79ddff;
+        const spark = this.add.rectangle(x, y, sparkSize, sparkSize, color).setDepth(20);
 
-          // Add a quick, brief electrical blue glow behind it
-          const glow = this.add.circle(x, y, Phaser.Math.Between(6, 12), 0x79ddff, 0.8).setDepth(19);
-          this.tweens.add({
-            targets: glow,
-            alpha: 0,
-            scale: 1.5,
-            duration: Phaser.Math.Between(100, 250),
-            onComplete: () => glow.destroy()
-          });
-        }
+        const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+        const speed = Phaser.Math.FloatBetween(20, 60);
+        const targetX = x + Math.cos(angle) * speed;
+        const targetY = y + Math.sin(angle) * speed + 40; // gravity effect
+
+        this.tweens.add({
+          targets: spark,
+          x: targetX,
+          y: targetY,
+          alpha: 0,
+          rotation: Phaser.Math.FloatBetween(-Math.PI * 2, Math.PI * 2),
+          duration: Phaser.Math.Between(300, 700),
+          ease: "Power1",
+          onComplete: () => {
+            if (spark) spark.destroy();
+          }
+        });
       }
-    });
+
+      // 10 times per minute means every ~6000ms
+      this.time.delayedCall(Phaser.Math.Between(5000, 7000), spawnSparkBurst);
+    };
+
+    // Schedule the first burst
+    this.time.delayedCall(Phaser.Math.Between(2000, 5000), spawnSparkBurst);
   }
 
   addRedLightGlow() {
@@ -324,7 +325,8 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     this.add.rectangle(panelX, 245, 245, 375, 0x152532, 1).setStrokeStyle(2, 0x355064, 1);
 
     // Customer Window
-    this.add.rectangle(panelX, 110, 220, 95, 0x111b24, 1).setStrokeStyle(2, 0x395365, 1);
+    this.add.image(panelX, 110, "bgCustomer").setDisplaySize(220, 95);
+    this.add.rectangle(panelX, 110, 220, 95, 0x000000, 0).setStrokeStyle(2, 0x395365, 1);
 
     this.customerSpriteBaseY = 66;
     this.customerSpriteBaseX = panelX - 55;
@@ -2363,4 +2365,3 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     return x >= 0 && x < this.gridSize && y >= 0 && y < this.gridSize;
   }
 }
-
