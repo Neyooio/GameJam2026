@@ -85,9 +85,12 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       title: null,
       subtitle: null,
       sprite: null,
-      spriteShadow: null,
       particles: [],
     };
+
+    this.customerSprite = null;
+    this.customerBubble = null;
+    this.customerText = null;
   }
 
   init(data) {
@@ -140,6 +143,10 @@ export class OverheatPuzzleScene extends Phaser.Scene {
 
     this.coffeePassiveInterval = 3;
 
+    this.customerActive = false;
+    this.customerWantedType = null;
+    this.customerCooldown = 5;
+
     this.spawnBag = [];
     this.refillSpawnBag();
   }
@@ -176,6 +183,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
 
   createBoardViews() {
     this.cellRects = [];
+    this.tileSpritesStrokes = [];
     this.tileSpritesBase = [];
     this.tileSprites = [];
     this.freezeTexts = [];
@@ -190,11 +198,22 @@ export class OverheatPuzzleScene extends Phaser.Scene {
           .setOrigin(0)
           .setStrokeStyle(2, 0x395365, 1);
 
+        const strokes = [];
+        const offsets = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+        for (let i = 0; i < offsets.length; i++) {
+          const s = this.add
+            .image(px + (this.cellSize - 8) * 0.5 + offsets[i][0], py + (this.cellSize - 8) * 0.5 + offsets[i][1], "propWater")
+            .setTint(0x000000)
+            .setAlpha(0.6)
+            .setVisible(false);
+          strokes.push(s);
+        }
+
         // Base dimensioned sprite that appears uncharged (dim/desaturated)
         const spriteBase = this.add
           .image(px + (this.cellSize - 8) * 0.5, py + (this.cellSize - 8) * 0.5, "propWater")
-          .setTint(0x666666)
-          .setAlpha(0.6)
+          .setTint(0x999999)
+          .setAlpha(0.95)
           .setVisible(false);
 
         // Sprite on top that gets cropped bottom-to-top as charge fills up
@@ -211,6 +230,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
           .setOrigin(0, 0.5);
 
         this.cellRects.push(rect);
+        this.tileSpritesStrokes.push(strokes);
         this.tileSpritesBase.push(spriteBase);
         this.tileSprites.push(sprite);
         this.freezeTexts.push(freezeText);
@@ -222,21 +242,41 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     const { width } = this.scale;
     const panelX = width * 0.73;
 
-    this.add.rectangle(panelX, 270, 245, 420, 0x152532, 0.65).setStrokeStyle(2, 0x355064, 1);
+    this.add.rectangle(panelX, 245, 245, 375, 0x152532, 0.65).setStrokeStyle(2, 0x355064, 1);
+
+    // Customer Window
+    this.add.rectangle(panelX, 110, 220, 95, 0x111b24, 1).setStrokeStyle(2, 0x395365, 1);
+    
+    this.customerSprite = this.add.image(panelX - 55, 110, "charStudent").setVisible(false).setDepth(8);
+    const src = this.customerSprite.texture.getSourceImage();
+    if (src && src.height) {
+      this.customerSprite.setScale(85 / src.height);
+    } else {
+      this.customerSprite.setScale(0.2);
+    }
+
+    this.customerBubble = this.add.rectangle(panelX + 35, 100, 120, 50, 0xffffff, 0.9).setStrokeStyle(2, 0x000000, 1).setVisible(false).setDepth(9);
+    this.customerText = this.add.text(panelX + 35, 100, "", {
+      fontFamily: "Yoster",
+      fontSize: "11px",
+      color: "#000000",
+      align: "center",
+      wordWrap: { width: 110 },
+    }).setOrigin(0.5).setVisible(false).setDepth(10);
 
     this.iceCoreText = this.add
-      .text(panelX, 100, "", {
+      .text(panelX, 175, "", {
         fontFamily: "Yoster",
         fontSize: "18px",
         color: "#d7f3ff",
       })
       .setOrigin(0.5);
 
-    this.iceCoreBar = this.add.rectangle(panelX - 98, 126, 196, 14, 0x79ddff, 1).setOrigin(0, 0.5);
-    this.add.rectangle(panelX, 126, 196, 14, 0x2a3b48, 1).setOrigin(0.5).setDepth(this.iceCoreBar.depth - 1);
+    this.iceCoreBar = this.add.rectangle(panelX - 98, 195, 196, 14, 0x79ddff, 1).setOrigin(0, 0.5);
+    this.add.rectangle(panelX, 195, 196, 14, 0x2a3b48, 1).setOrigin(0.5).setDepth(this.iceCoreBar.depth - 1);
 
     this.scoreText = this.add
-      .text(panelX, 156, "", {
+      .text(panelX, 225, "", {
         fontFamily: "Yoster",
         fontSize: "15px",
         color: "#ffe59b",
@@ -244,7 +284,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.turnText = this.add
-      .text(panelX, 178, "", {
+      .text(panelX, 245, "", {
         fontFamily: "Yoster",
         fontSize: "15px",
         color: "#dce9f5",
@@ -252,7 +292,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.messageText = this.add
-      .text(panelX, 204, "", {
+      .text(panelX, 265, "", {
         fontFamily: "Yoster",
         fontSize: "11px",
         color: "#9fc2dd",
@@ -262,7 +302,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       .setOrigin(0.5, 0);
 
     this.add
-      .text(panelX, 255, "BURST THRESHOLDS", {
+      .text(panelX, 315, "BURST THRESHOLDS", {
         fontFamily: "Yoster",
         fontSize: "12px",
         color: "#d4e6f4",
@@ -270,18 +310,18 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.add
-      .text(panelX, 336, "Water 3  Juice 4\nTea 6  Cola 5\nCoffee 2", {
+      .text(panelX, 345, "Water 3   Juice 4   Tea 6\nCola 5   Coffee 2", {
         fontFamily: "Yoster",
-        fontSize: "12px",
+        fontSize: "11px",
         color: "#bcd0e2",
         align: "center",
       })
       .setOrigin(0.5);
 
     this.add
-      .text(panelX, 384, "Slot fills by color as same items merge.\nWhen full, tile bursts and triggers skill.", {
+      .text(panelX, 395, "Slot fills by color as same items merge.\nWhen full, tile bursts and triggers skill.", {
         fontFamily: "Yoster",
-        fontSize: "11px",
+        fontSize: "10px",
         color: "#95afc3",
         align: "center",
         wordWrap: { width: 220 },
@@ -508,6 +548,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
         this.spawnOneTile();
         this.applyCoffeePassive();
         this.tickFreezeTurns();
+        this.updateCustomer();
         this.normalizeIceState();
         this.checkLoseCondition(() => {
           this.refreshAll();
@@ -1178,6 +1219,10 @@ export class OverheatPuzzleScene extends Phaser.Scene {
   }
 
   applySkill(type, burst = null) {
+    if (this.customerActive && type === this.customerWantedType) {
+      this.satisfyCustomer();
+    }
+
     if (type === "water") {
       this.chargeAllWaterBy(1);
       this.setMessage("Water burst: all water charged +1.", "#9fd4ff");
@@ -1206,6 +1251,91 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       this.iceCore = Math.min(this.iceCoreMax, this.iceCore + 1);
       this.setMessage("Coffee burst: removed itself, Ice Core +1.", "#ddc0aa");
     }
+  }
+
+  updateCustomer() {
+    if (this.customerActive) {
+      return;
+    }
+
+    if (this.customerCooldown > 0) {
+      this.customerCooldown -= 1;
+      return;
+    }
+
+    this.spawnCustomer();
+  }
+
+  spawnCustomer() {
+    this.customerActive = true;
+    
+    const drinks = ["water", "juice", "tea", "cola", "coffee"];
+    this.customerWantedType = Phaser.Utils.Array.GetRandom(drinks);
+
+    // Ensure scaling
+    const src = this.customerSprite.texture.getSourceImage();
+    if (src && src.height) {
+      this.customerSprite.setScale(90 / src.height);
+    } else {
+      this.customerSprite.setScale(0.2);
+    }
+
+    this.customerSprite.setVisible(true).setAlpha(0);
+    this.customerBubble.setVisible(true).setAlpha(0).setScale(0);
+    this.customerText.setVisible(true).setAlpha(0).setScale(0);
+
+    const drinkNames = {
+      water: "Water",
+      juice: "Juice",
+      tea: "Tea",
+      cola: "Cola",
+      coffee: "Coffee",
+    };
+
+    this.customerText.setText(`I need a ${drinkNames[this.customerWantedType]}!`);
+
+    this.tweens.add({
+      targets: this.customerSprite,
+      alpha: 1,
+      duration: 300,
+    });
+
+    this.tweens.add({
+      targets: [this.customerBubble, this.customerText],
+      alpha: 1,
+      scaleX: 1,
+      scaleY: 1,
+      duration: 300,
+      ease: "Back.easeOut",
+      delay: 200,
+    });
+  }
+
+  satisfyCustomer() {
+    if (!this.customerActive) return;
+
+    this.customerActive = false;
+    this.customerWantedType = null;
+    this.customerCooldown = Phaser.Math.Between(5, 10);
+
+    this.customerText.setText("Thanks!");
+
+    this.score += 300;
+    this.iceCore = Math.min(this.iceCoreMax, this.iceCore + 2);
+    this.setMessage("Customer satisfied! Score +300, Ice Core +2.", "#a8ffb2");
+
+    this.time.delayedCall(1200, () => {
+      this.tweens.add({
+        targets: [this.customerSprite, this.customerBubble, this.customerText],
+        alpha: 0,
+        duration: 300,
+        onComplete: () => {
+          this.customerSprite.setVisible(false);
+          this.customerBubble.setVisible(false);
+          this.customerText.setVisible(false);
+        }
+      });
+    });
   }
 
   applyJuiceBurst(burst) {
@@ -1757,6 +1887,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     }
 
     const idx = icePos.y * this.gridSize + icePos.x;
+    const strokes = this.tileSpritesStrokes[idx];
     const spriteBase = this.tileSpritesBase[idx];
     const sprite = this.tileSprites[idx];
     const center = this.getCellCenter(icePos.x, icePos.y);
@@ -1766,13 +1897,17 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     const origX = sprite.x;
 
     this.tweens.add({
-      targets: [spriteBase, sprite],
-      x: origX + 4,
+      targets: [...strokes, spriteBase, sprite],
+      x: "+=4",
       duration: 50,
       yoyo: true,
       repeat: 7,
       ease: "Sine.easeInOut",
       onComplete: () => {
+        strokes[0].x = origX - 1;
+        strokes[1].x = origX + 1;
+        strokes[2].x = origX;
+        strokes[3].x = origX;
         spriteBase.x = origX;
         sprite.x = origX;
 
@@ -1796,7 +1931,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
         });
 
         this.tweens.add({
-          targets: [spriteBase, sprite],
+          targets: [...strokes, spriteBase, sprite],
           scaleX: 0,
           scaleY: 0,
           alpha: 0,
@@ -1805,7 +1940,8 @@ export class OverheatPuzzleScene extends Phaser.Scene {
           onComplete: () => {
             this.board[icePos.y][icePos.x] = null;
             this.freezeTurns[icePos.y][icePos.x] = 0;
-            spriteBase.setVisible(false).setAlpha(0.6).setScale(1);
+            strokes.forEach(s => s.setVisible(false).setAlpha(0.6).setScale(1));
+            spriteBase.setVisible(false).setAlpha(0.95).setScale(1);
             sprite.setVisible(false).setAlpha(1).setScale(1);
             this.refreshAll();
             onDone();
@@ -1879,6 +2015,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
         const tile = this.board[y][x];
 
         const rect = this.cellRects[idx];
+        const strokes = this.tileSpritesStrokes[idx];
         const spriteBase = this.tileSpritesBase[idx];
         const sprite = this.tileSprites[idx];
         const freezeText = this.freezeTexts[idx];
@@ -1886,6 +2023,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
         if (!tile) {
           rect.setFillStyle(0x1c2a36, 1);
           rect.setStrokeStyle(2, 0x395365, 1);
+          strokes.forEach(s => s.setVisible(false));
           spriteBase.setVisible(false);
           sprite.setVisible(false);
           freezeText.setText("");
@@ -1907,6 +2045,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
           ratio = Phaser.Math.Clamp(charge / cap, 0, 1);
         }
 
+        strokes.forEach(s => this.placeTileSprite(s, tile.type));
         this.placeTileSprite(spriteBase, tile.type);
         this.placeTileSprite(sprite, tile.type);
 
@@ -2032,7 +2171,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
 
           if (completed === smoothMoves.length) {
             this.tileSpritesBase.forEach((sprite) => {
-              sprite.setAlpha(0.6);
+              sprite.setAlpha(0.85);
             });
 
             this.tileSprites.forEach((sprite) => {
