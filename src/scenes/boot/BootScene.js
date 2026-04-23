@@ -14,7 +14,9 @@ export class BootScene extends Phaser.Scene {
     this.load.image("propIce", "public/assets/images/props/icecube.png");
     this.load.image("propTea", "public/assets/images/props/tea.png");
     this.load.image("propJuice", "public/assets/images/props/juice.png");
-    this.load.image("charStudent", "public/assets/images/props/student1.png");
+    this.load.image("student2", "public/assets/images/props/student2.png");
+    this.load.image("student3", "public/assets/images/props/student3.png");
+    this.load.image("student4", "public/assets/images/props/student4.png");
     this.load.audio("menuBgm", "public/assets/audio/music/After_The_Last_Train.mp3");
     this.load.audio("rainLineSfx", "public/assets/audio/music/Rain_Against_the_Glass.mp3");
     this.load.audio("typingSfx", "public/assets/audio/sfx/typing.mp3");
@@ -30,6 +32,7 @@ export class BootScene extends Phaser.Scene {
     this.load.audio("comboRefreshingSfx", "public/assets/audio/sfx/Refreshing.mp3");
     this.load.audio("comboSweetDrinkSfx", "public/assets/audio/sfx/SweetDrinks.mp3");
     this.load.audio("comboColdBreezeSfx", "public/assets/audio/sfx/Coldbreeze.mp3");
+    this.load.audio("popSfx", "public/assets/audio/sfx/pop.mp3");
   }
 
   async create() {
@@ -37,11 +40,12 @@ export class BootScene extends Phaser.Scene {
       try {
         await document.fonts.load('16px "Yoster"');
         await document.fonts.ready;
-      } catch {
+      } catch (error) {
         // Continue boot even if the Font Loading API fails.
       }
     }
 
+    // Move to the next scene once everything is loaded
     this.scene.start("OpeningScene");
   }
 }

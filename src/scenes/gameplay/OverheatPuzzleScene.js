@@ -610,21 +610,21 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     this.customerSpriteBaseY = 66;
     this.customerSpriteBaseX = panelX - 55;
     this.customerSpriteStartX = panelX + 55;
-    
+
     const maskShape = this.make.graphics();
     maskShape.fillStyle(0xffffff);
     maskShape.fillRect(panelX - 110, 110 - 47.5, 220, 95);
     const customerMask = maskShape.createGeometryMask();
 
-    this.customerSprite = this.add.image(this.customerSpriteBaseX, this.customerSpriteBaseY, "charStudent").setVisible(false).setDepth(8).setOrigin(0.5, 0);
+    this.customerSprite = this.add.image(this.customerSpriteBaseX, this.customerSpriteBaseY, "student2").setVisible(false).setDepth(8).setOrigin(0.5, 0);
     this.customerSprite.setMask(customerMask);
-    
-    const src = this.customerSprite.texture.getSourceImage();
-    if (src && src.height) {
-      const halfHeight = src.height * 0.55;
-      this.customerSprite.setScale(90 / halfHeight);
+
+    if (this.customerSprite.height) {
+      // Adjust the multiplier to fit the upper half of the body (~48%) into the window
+      const halfBodyHeight = this.customerSprite.height * 0.48;
+      this.customerSprite.setScale(95 / halfBodyHeight);
     } else {
-      this.customerSprite.setScale(0.3);
+      this.customerSprite.setScale(0.45);
     }
 
     this.customerBubble = this.add.rectangle(panelX + 35, 100, 120, 50, 0xffffff, 1).setStrokeStyle(2, 0x000000, 1).setVisible(false).setDepth(9);
@@ -1151,11 +1151,13 @@ export class OverheatPuzzleScene extends Phaser.Scene {
 
     this.cameras.main.shake(120, 0.003);
 
+    this.playSfx("popSfx", { volume: 0.5 });
+
     for (let i = 0; i < 12; i++) {
       const angle = (i / 12) * Math.PI * 2;
       const dist = 40 + Math.random() * 30;
       const particle = this.add.circle(center.x, center.y, 4 + Math.random() * 4, color, 1).setDepth(241);
-      
+
       this.tweens.add({
         targets: particle,
         x: center.x + Math.cos(angle) * dist,
@@ -1739,6 +1741,19 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     this.customerWantedType = Phaser.Utils.Array.GetRandom(drinks);
 
     // Scaling is now handled statically in createRightPanel
+    // Randomize the character sprite
+    const customerKeys = ["student2", "student3", "student4"];
+    const chosenKey = Phaser.Utils.Array.GetRandom(customerKeys);
+    this.customerSprite.setTexture(chosenKey);
+
+    // Recalculate half-body scaling in case the new image has different dimensions
+    if (this.customerSprite.height) {
+      const halfBodyHeight = this.customerSprite.height * 0.48;
+      this.customerSprite.setScale(95 / halfBodyHeight);
+    } else {
+      this.customerSprite.setScale(0.45);
+    }
+
     this.customerSprite.x = this.customerSpriteStartX || (this.customerSpriteBaseX + 110);
     this.customerSprite.y = this.customerSpriteBaseY || 66;
 
