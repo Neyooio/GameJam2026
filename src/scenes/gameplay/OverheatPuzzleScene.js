@@ -610,11 +610,18 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     this.customerSpriteBaseY = 66;
     this.customerSpriteBaseX = panelX - 55;
     this.customerSpriteStartX = panelX + 55;
+    
+    const maskShape = this.make.graphics();
+    maskShape.fillStyle(0xffffff);
+    maskShape.fillRect(panelX - 110, 110 - 47.5, 220, 95);
+    const customerMask = maskShape.createGeometryMask();
+
     this.customerSprite = this.add.image(this.customerSpriteBaseX, this.customerSpriteBaseY, "charStudent").setVisible(false).setDepth(8).setOrigin(0.5, 0);
+    this.customerSprite.setMask(customerMask);
+    
     const src = this.customerSprite.texture.getSourceImage();
     if (src && src.height) {
       const halfHeight = src.height * 0.55;
-      this.customerSprite.setCrop(0, 0, src.width, halfHeight);
       this.customerSprite.setScale(90 / halfHeight);
     } else {
       this.customerSprite.setScale(0.3);
@@ -1809,17 +1816,40 @@ export class OverheatPuzzleScene extends Phaser.Scene {
 
     this.time.delayedCall(1200, () => {
       this.tweens.add({
-        targets: [this.customerSprite, this.customerBubble, this.customerText],
+        targets: [this.customerBubble, this.customerText],
         alpha: 0,
         duration: 300,
         onComplete: () => {
-          this.customerSprite.setVisible(false);
           this.customerBubble.setVisible(false);
           this.customerText.setVisible(false);
+        }
+      });
+
+      if (this.customerBobTween) {
+        this.customerBobTween.stop();
+      }
+
+      this.customerBobTween = this.tweens.add({
+        targets: this.customerSprite,
+        y: (this.customerSpriteBaseY || 66) - 4,
+        duration: 150,
+        yoyo: true,
+        repeat: -1,
+        ease: "Sine.easeInOut"
+      });
+
+      this.tweens.add({
+        targets: this.customerSprite,
+        x: this.customerSpriteBaseX - 110,
+        duration: 1200,
+        ease: "Linear",
+        onComplete: () => {
+          this.customerSprite.setVisible(false);
           if (this.customerBobTween) {
             this.customerBobTween.stop();
             this.customerBobTween = null;
           }
+          this.customerSprite.y = this.customerSpriteBaseY || 66;
         }
       });
     });
