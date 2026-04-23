@@ -25,30 +25,44 @@ export class MainMenuScene extends Phaser.Scene {
     this.backgroundDriftStates = [];
     this.sharedShakeTime = 0;
     this.sharedShakeSeed = Math.random() * 1000;
+    this.crtScanlines = null;
+    this.vignetteImage = null;
+    this.isStartingGame = false;
   }
 
   create() {
     const { width, height } = this.scale;
+    this.isStartingGame = false;
+    this.isTransitioning = false;
+    this.preSwitchActive = false;
+    this.activeIndex = Phaser.Math.Clamp(this.activeIndex, 0, this.backgroundKeys.length - 1);
 
-    const menuBgm = this.sound.get("menuBgm");
+    // Ensure camera fade/flash state from previous scene transitions never carries over.
+    this.cameras.main.resetFX();
+    this.cameras.main.setAlpha(1);
+
+    let menuBgm = this.sound.get("menuBgm");
+    if (!menuBgm && this.cache.audio.exists("menuBgm")) {
+      menuBgm = this.sound.add("menuBgm", { loop: true, volume: 0.32 });
+    }
     if (menuBgm) {
+      menuBgm.setMute(this.registry.get("muteBgm") || false);
       if (!menuBgm.isPlaying) {
-        menuBgm.play({ loop: true, volume: 0.32 });
+        menuBgm.play();
       }
-    } else {
-      this.sound.play("menuBgm", { loop: true, volume: 0.32 });
     }
 
     this.backgroundImages = this.backgroundKeys.map((key, index) => {
-      const image = this.add.image(width * 0.5, height * 0.5, key).setAlpha(index === 0 ? 1 : 0);
+      const image = this.add.image(width * 0.5, height * 0.5, key).setAlpha(index === this.activeIndex ? 1 : 0);
       this.fitImageToCamera(image);
       return image;
     });
 
     this.startBackgroundMotion();
-  this.createAnimatedTitle();
+    this.createAnimatedTitle();
 
     this.addOverlayUI();
+    this.addCrtOverlay();
 
     this.updateHumanVisualState();
     this.scheduleNextSwitch();
@@ -166,8 +180,6 @@ export class MainMenuScene extends Phaser.Scene {
     const { width, height } = this.scale;
 
     // Colors matching the gritty environment
-    const panelFillColor = 0x2a211c;
-    const panelStrokeColor = 0x1f1612;
     const buttonFillColor = 0x3d3029;
     const accentColor = 0xf5b942;
     const textColor = "#f5e6d3";
@@ -179,143 +191,27 @@ export class MainMenuScene extends Phaser.Scene {
     const tutorialCenterY = groupCenterY;
     const exitCenterY = groupCenterY + 54;
 
-    // Button now acts as its own embedded element directly on the wall
-    this.playButtonShadow = this.add.rectangle(centerX - 2, centerY - 2, 140, 34, 0x000000, 0.6).setDepth(10);
-    this.playButton = this.add.rectangle(centerX, centerY, 140, 34, buttonFillColor, 0.9).setDepth(10);
-    this.playButton.setStrokeStyle(2, accentColor, 1);
+    const buttonStyles = {
+      buttonFillColor,
+      accentColor,
+      textColor,
+      textHoverColor,
+    };
 
-    this.playText = this.add
-      .text(centerX, centerY, "PLAY", {
-        fontFamily: "Yoster",
-        fontSize: "16px",
-        color: textColor,
-        shadow: { fill: true, offsetX: 1, offsetY: 1, color: "#000000", blur: 0 },
-      })
-      .setOrigin(0.5)
-      .setDepth(10);
+    const playEntry = this.createMenuButton(centerX, centerY, "PLAY", buttonStyles, () => this.startGameplay(false));
+    this.playButtonShadow = playEntry.shadow;
+    this.playButton = playEntry.button;
+    this.playText = playEntry.text;
+    this.playZone = playEntry.zone;
 
-    // Invisible, stationary hit box to prevent hover-jitter loops
-    // using a rectangle instead of a zone ensures stable hit-area configuration on all Phaser versions
-    this.playZone = this.add.rectangle(centerX, centerY, 140, 34, 0x000000, 0)
-      .setDepth(20)
-      .setInteractive({ useHandCursor: true });
+    const tutorialEntry = this.createMenuButton(centerX, tutorialCenterY, "TUTORIAL", buttonStyles, () => this.startGameplay(true));
+    this.tutorialButtonShadow = tutorialEntry.shadow;
+    this.tutorialButton = tutorialEntry.button;
+    this.tutorialText = tutorialEntry.text;
+    this.tutorialZone = tutorialEntry.zone;
 
-    this.playZone.on("pointerover", () => {
-      this.playHoverSfx();
-      this.playButton.setFillStyle(accentColor, 1);
-      this.playText.setColor(textHoverColor);
-      this.playText.setShadowOffset(0, 0); // Remove shadow when hovering for flat inset look
-      // Press slightly IN when hovering
-      this.playButton.setPosition(centerX - 1, centerY - 1);
-      this.playText.setPosition(centerX - 1, centerY - 1);
-    });
-
-    this.playZone.on("pointerout", () => {
-      this.playButton.setFillStyle(buttonFillColor, 0.9);
-      this.playText.setColor(textColor);
-      this.playText.setShadowOffset(1, 1);
-      this.playButton.setPosition(centerX, centerY);
-      this.playText.setPosition(centerX, centerY);
-    });
-
-    this.playZone.on("pointerdown", (pointer) => {
-      if (!pointer.leftButtonDown()) {
-        return;
-      }
-      if (this.cache.audio.exists("uiClickSfx")) {
-        this.sound.play("uiClickSfx", { volume: 0.6 });
-      }
-      this.cameras.main.flash(160, 178, 246, 255, true);
-    });
-
-    // Tutorial Button
-    this.tutorialButtonShadow = this.add.rectangle(centerX - 2, tutorialCenterY - 2, 140, 34, 0x000000, 0.6).setDepth(10);
-    this.tutorialButton = this.add.rectangle(centerX, tutorialCenterY, 140, 34, buttonFillColor, 0.9).setDepth(10);
-    this.tutorialButton.setStrokeStyle(2, accentColor, 1);
-
-    this.tutorialText = this.add
-      .text(centerX, tutorialCenterY, "TUTORIAL", {
-        fontFamily: "Yoster",
-        fontSize: "16px",
-        color: textColor,
-        shadow: { fill: true, offsetX: 1, offsetY: 1, color: "#000000", blur: 0 },
-      })
-      .setOrigin(0.5)
-      .setDepth(10);
-
-    this.tutorialZone = this.add.rectangle(centerX, tutorialCenterY, 140, 34, 0x000000, 0)
-      .setDepth(20)
-      .setInteractive({ useHandCursor: true });
-
-    this.tutorialZone.on("pointerover", () => {
-      this.playHoverSfx();
-      this.tutorialButton.setFillStyle(accentColor, 1);
-      this.tutorialText.setColor(textHoverColor);
-      this.tutorialText.setShadowOffset(0, 0);
-      this.tutorialButton.setPosition(centerX - 1, tutorialCenterY - 1);
-      this.tutorialText.setPosition(centerX - 1, tutorialCenterY - 1);
-    });
-
-    this.tutorialZone.on("pointerout", () => {
-      this.tutorialButton.setFillStyle(buttonFillColor, 0.9);
-      this.tutorialText.setColor(textColor);
-      this.tutorialText.setShadowOffset(1, 1);
-      this.tutorialButton.setPosition(centerX, tutorialCenterY);
-      this.tutorialText.setPosition(centerX, tutorialCenterY);
-    });
-
-    this.tutorialZone.on("pointerdown", (pointer) => {
-      if (!pointer.leftButtonDown()) {
-        return;
-      }
-      if (this.cache.audio.exists("uiClickSfx")) {
-        this.sound.play("uiClickSfx", { volume: 0.6 });
-      }
-      this.cameras.main.flash(160, 178, 246, 255, true);
-    });
-
-    // Exit Button
-    this.exitButtonShadow = this.add.rectangle(centerX - 2, exitCenterY - 2, 140, 34, 0x000000, 0.6).setDepth(10);
-    this.exitButton = this.add.rectangle(centerX, exitCenterY, 140, 34, buttonFillColor, 0.9).setDepth(10);
-    this.exitButton.setStrokeStyle(2, accentColor, 1);
-
-    this.exitText = this.add
-      .text(centerX, exitCenterY, "EXIT", {
-        fontFamily: "Yoster",
-        fontSize: "16px",
-        color: textColor,
-        shadow: { fill: true, offsetX: 1, offsetY: 1, color: "#000000", blur: 0 },
-      })
-      .setOrigin(0.5)
-      .setDepth(10);
-
-    this.exitZone = this.add.rectangle(centerX, exitCenterY, 140, 34, 0x000000, 0)
-      .setDepth(20)
-      .setInteractive({ useHandCursor: true });
-
-    this.exitZone.on("pointerover", () => {
-      this.playHoverSfx();
-      this.exitButton.setFillStyle(accentColor, 1);
-      this.exitText.setColor(textHoverColor);
-      this.exitText.setShadowOffset(0, 0);
-      this.exitButton.setPosition(centerX - 1, exitCenterY - 1);
-      this.exitText.setPosition(centerX - 1, exitCenterY - 1);
-    });
-
-    this.exitZone.on("pointerout", () => {
-      this.exitButton.setFillStyle(buttonFillColor, 0.9);
-      this.exitText.setColor(textColor);
-      this.exitText.setShadowOffset(1, 1);
-      this.exitButton.setPosition(centerX, exitCenterY);
-      this.exitText.setPosition(centerX, exitCenterY);
-    });
-
-    this.exitZone.on("pointerdown", (pointer) => {
-      if (!pointer.leftButtonDown()) {
-        return;
-      }
-
-      if (this.cache.audio.exists("uiClickSfx")) {
+    const exitEntry = this.createMenuButton(centerX, exitCenterY, "EXIT", buttonStyles, () => {
+      if (!this.registry.get("muteSfx") && this.cache.audio.exists("uiClickSfx")) {
         this.sound.play("uiClickSfx", { volume: 0.6 });
       }
 
@@ -323,6 +219,156 @@ export class MainMenuScene extends Phaser.Scene {
       this.time.delayedCall(190, () => {
         this.game.destroy(true);
       });
+    });
+    this.exitButtonShadow = exitEntry.shadow;
+    this.exitButton = exitEntry.button;
+    this.exitText = exitEntry.text;
+    this.exitZone = exitEntry.zone;
+
+    this.createMuteButtons();
+  }
+
+  createMuteButtons() {
+    const { width, height } = this.scale;
+    const sfxBtnX = width - 36;
+    const bgmBtnX = width - 84;
+    const btnY = height - 28;
+
+    const buttonFillColor = 0x3d3029;
+    const accentColor = 0xf5b942;
+    const textColor = "#f5e6d3";
+    
+    // BGM Button
+    const isBgmMuted = this.registry.get("muteBgm") || false;
+    const bgmShadow = this.add.rectangle(bgmBtnX - 1, btnY - 1, 40, 36, 0x000000, 0.6).setDepth(10);
+    const bgmBox = this.add.rectangle(bgmBtnX, btnY, 40, 36, buttonFillColor, 0.9).setStrokeStyle(2, accentColor, 1).setDepth(10);
+    const bgmBtn = this.add.text(bgmBtnX, btnY, isBgmMuted ? "♪\nOFF" : "♪\nON", {
+      fontFamily: "Yoster", fontSize: "10px", color: textColor, align: "center"
+    }).setOrigin(0.5).setDepth(11);
+    
+    const bgmZone = this.add.rectangle(bgmBtnX, btnY, 40, 36, 0x000000, 0).setInteractive({ useHandCursor: true }).setDepth(20);
+    
+    bgmZone.on("pointerdown", (pointer) => {
+      if (!pointer.leftButtonDown()) return;
+      const currentlyMuted = this.registry.get("muteBgm") || false;
+      const nextMute = !currentlyMuted;
+      this.registry.set("muteBgm", nextMute);
+      bgmBtn.setText(nextMute ? "♪\nOFF" : "♪\nON");
+
+      const menuBgm = this.sound.get("menuBgm");
+      if (menuBgm) menuBgm.setMute(nextMute);
+
+      if (!this.registry.get("muteSfx") && this.cache.audio.exists("uiClickSfx")) {
+        this.sound.play("uiClickSfx", { volume: 0.6 });
+      }
+    });
+
+    // SFX Button
+    const isSfxMuted = this.registry.get("muteSfx") || false;
+    const sfxShadow = this.add.rectangle(sfxBtnX - 1, btnY - 1, 40, 36, 0x000000, 0.6).setDepth(10);
+    const sfxBox = this.add.rectangle(sfxBtnX, btnY, 40, 36, buttonFillColor, 0.9).setStrokeStyle(2, accentColor, 1).setDepth(10);
+    const sfxBtn = this.add.text(sfxBtnX, btnY, isSfxMuted ? "🔊\nOFF" : "🔊\nON", {
+      fontFamily: "Yoster", fontSize: "10px", color: textColor, align: "center"
+    }).setOrigin(0.5).setDepth(11);
+
+    const sfxZone = this.add.rectangle(sfxBtnX, btnY, 40, 36, 0x000000, 0).setInteractive({ useHandCursor: true }).setDepth(20);
+
+    sfxZone.on("pointerdown", (pointer) => {
+      if (!pointer.leftButtonDown()) return;
+      const currentlyMuted = this.registry.get("muteSfx") || false;
+      const nextMute = !currentlyMuted;
+      this.registry.set("muteSfx", nextMute);
+      sfxBtn.setText(nextMute ? "🔊\nOFF" : "🔊\nON");
+
+      if (!nextMute && this.cache.audio.exists("uiClickSfx")) {
+        this.sound.play("uiClickSfx", { volume: 0.6 });
+      }
+    });
+  }
+
+  createMenuButton(centerX, centerY, label, styles, onClick) {
+    const { buttonFillColor, accentColor, textColor, textHoverColor } = styles;
+
+    const shadow = this.add.rectangle(centerX - 2, centerY - 2, 140, 34, 0x000000, 0.6).setDepth(10);
+    const button = this.add.rectangle(centerX, centerY, 140, 34, buttonFillColor, 0.9).setDepth(10);
+    button.setStrokeStyle(2, accentColor, 1);
+
+    const text = this.add
+      .text(centerX, centerY, label, {
+        fontFamily: "Yoster",
+        fontSize: "16px",
+        color: textColor,
+        shadow: { fill: true, offsetX: 1, offsetY: 1, color: "#000000", blur: 0 },
+      })
+      .setOrigin(0.5)
+      .setDepth(10);
+
+    const zone = this.add.rectangle(centerX, centerY, 140, 34, 0x000000, 0)
+      .setDepth(20)
+      .setInteractive({ useHandCursor: true });
+
+    zone.on("pointerover", () => {
+      this.playHoverSfx();
+      button.setFillStyle(accentColor, 1);
+      text.setColor(textHoverColor);
+      text.setShadowOffset(0, 0);
+      button.setPosition(centerX - 1, centerY - 1);
+      text.setPosition(centerX - 1, centerY - 1);
+    });
+
+    zone.on("pointerout", () => {
+      button.setFillStyle(buttonFillColor, 0.9);
+      text.setColor(textColor);
+      text.setShadowOffset(1, 1);
+      button.setPosition(centerX, centerY);
+      text.setPosition(centerX, centerY);
+    });
+
+    zone.on("pointerdown", (pointer) => {
+      if (!pointer.leftButtonDown()) {
+        return;
+      }
+      onClick();
+    });
+
+    return { shadow, button, text, zone };
+  }
+
+  setMenuButtonPosition(shadow, button, text, zone, centerX, centerY) {
+    if (shadow) {
+      shadow.setPosition(centerX - 2, centerY - 2);
+    }
+
+    if (button) {
+      button.setPosition(centerX, centerY);
+    }
+
+    if (text) {
+      text.setPosition(centerX, centerY);
+    }
+
+    if (zone) {
+      zone.setPosition(centerX, centerY);
+    }
+  }
+
+  startGameplay(tutorialMode) {
+    if (this.isStartingGame) {
+      return;
+    }
+
+    this.isStartingGame = true;
+
+    if (!this.registry.get("muteSfx") && this.cache.audio.exists("uiClickSfx")) {
+      this.sound.play("uiClickSfx", { volume: 0.6 });
+    }
+
+    this.cameras.main.flash(160, 178, 246, 255, true);
+    this.time.delayedCall(120, () => {
+      this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+        this.scene.start("OverheatPuzzleScene", { tutorial: tutorialMode });
+      });
+      this.cameras.main.fadeOut(260, 10, 16, 24);
     });
   }
 
@@ -531,6 +577,76 @@ export class MainMenuScene extends Phaser.Scene {
     image.setData("baseScale", scale);
   }
 
+  addCrtOverlay() {
+    this.drawScanlines();
+    this.createVignette();
+  }
+
+  drawScanlines() {
+    const { width, height } = this.scale;
+
+    if (!this.crtScanlines) {
+      this.crtScanlines = this.add.graphics();
+      this.crtScanlines.setDepth(50);
+    }
+
+    this.crtScanlines.clear();
+
+    // Thin dark lines every 3px to simulate CRT scanlines
+    const lineSpacing = 3;
+    this.crtScanlines.fillStyle(0x000000, 0.12);
+    for (let y = 0; y < height; y += lineSpacing) {
+      this.crtScanlines.fillRect(0, y, width, 1);
+    }
+
+    // Faint bright highlight lines every 6px for phosphor glow illusion
+    this.crtScanlines.fillStyle(0xffffff, 0.015);
+    for (let y = 1; y < height; y += lineSpacing * 2) {
+      this.crtScanlines.fillRect(0, y, width, 1);
+    }
+  }
+
+  createVignette() {
+    const { width, height } = this.scale;
+    const key = "__crt_vignette";
+
+    // Remove previous vignette image if it exists
+    if (this.vignetteImage) {
+      this.vignetteImage.destroy();
+      this.vignetteImage = null;
+    }
+
+    // Remove old texture to avoid key-clash on resize
+    if (this.textures.exists(key)) {
+      this.textures.remove(key);
+    }
+
+    // Create a CanvasTexture and draw a radial gradient vignette
+    const canvasTex = this.textures.createCanvas(key, width, height);
+    const ctx = canvasTex.getContext();
+
+    // Radial gradient: transparent center → dark edges
+    const cx = width * 0.5;
+    const cy = height * 0.5;
+    const innerRadius = Math.min(width, height) * 0.25;
+    const outerRadius = Math.max(width, height) * 0.85;
+
+    const gradient = ctx.createRadialGradient(cx, cy, innerRadius, cx, cy, outerRadius);
+    gradient.addColorStop(0, "rgba(0, 0, 0, 0)");
+    gradient.addColorStop(0.5, "rgba(0, 0, 0, 0.15)");
+    gradient.addColorStop(0.8, "rgba(0, 0, 0, 0.45)");
+    gradient.addColorStop(1, "rgba(0, 0, 0, 0.75)");
+
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+
+    canvasTex.refresh();
+
+    this.vignetteImage = this.add.image(cx, cy, key)
+      .setDepth(49)
+      .setAlpha(1);
+  }
+
   handleResize(gameSize) {
     const width = gameSize.width;
     const height = gameSize.height;
@@ -545,53 +661,16 @@ export class MainMenuScene extends Phaser.Scene {
     const tutorialCenterY = groupCenterY;
     const exitCenterY = groupCenterY + 54;
 
-    if (this.playButtonShadow) {
-      this.playButtonShadow.setPosition(centerX - 2, centerY - 2);
-    }
-
-    if (this.playButton) {
-      this.playButton.setPosition(centerX, centerY);
-    }
-
-    if (this.playText) {
-      this.playText.setPosition(centerX, centerY);
-    }
-
-    if (this.playZone) {
-      this.playZone.setPosition(centerX, centerY);
-    }
-
-    if (this.tutorialButtonShadow) {
-      this.tutorialButtonShadow.setPosition(centerX - 2, tutorialCenterY - 2);
-    }
-
-    if (this.tutorialButton) {
-      this.tutorialButton.setPosition(centerX, tutorialCenterY);
-    }
-
-    if (this.tutorialText) {
-      this.tutorialText.setPosition(centerX, tutorialCenterY);
-    }
-
-    if (this.tutorialZone) {
-      this.tutorialZone.setPosition(centerX, tutorialCenterY);
-    }
-
-    if (this.exitButtonShadow) {
-      this.exitButtonShadow.setPosition(centerX - 2, exitCenterY - 2);
-    }
-
-    if (this.exitButton) {
-      this.exitButton.setPosition(centerX, exitCenterY);
-    }
-
-    if (this.exitText) {
-      this.exitText.setPosition(centerX, exitCenterY);
-    }
-
-    if (this.exitZone) {
-      this.exitZone.setPosition(centerX, exitCenterY);
-    }
+    this.setMenuButtonPosition(this.playButtonShadow, this.playButton, this.playText, this.playZone, centerX, centerY);
+    this.setMenuButtonPosition(
+      this.tutorialButtonShadow,
+      this.tutorialButton,
+      this.tutorialText,
+      this.tutorialZone,
+      centerX,
+      tutorialCenterY,
+    );
+    this.setMenuButtonPosition(this.exitButtonShadow, this.exitButton, this.exitText, this.exitZone, centerX, exitCenterY);
 
     if (this.titleLines.length) {
       const leftX = width * 0.19;
@@ -616,10 +695,14 @@ export class MainMenuScene extends Phaser.Scene {
     if (this.staticLines && this.backgroundKeys[this.activeIndex] === "bgHuman" && this.preSwitchActive) {
       this.renderStaticLines(0.1);
     }
+
+    // Re-draw CRT overlays to match new dimensions
+    this.drawScanlines();
+    this.createVignette();
   }
 
   playHoverSfx() {
-    if (!this.cache.audio.exists("uiHoverSfx")) {
+    if (this.registry.get("muteSfx") || !this.cache.audio.exists("uiHoverSfx")) {
       return;
     }
 
