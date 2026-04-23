@@ -508,12 +508,12 @@ export class OverheatPuzzleScene extends Phaser.Scene {
         });
       }
 
-      // 10 times per minute means every ~6000ms
-      this.time.delayedCall(Phaser.Math.Between(5000, 7000), spawnSparkBurst);
+      // 15 times per minute means every ~4000ms
+      this.time.delayedCall(Phaser.Math.Between(3000, 5000), spawnSparkBurst);
     };
 
     // Schedule the first burst
-    this.time.delayedCall(Phaser.Math.Between(2000, 5000), spawnSparkBurst);
+    this.time.delayedCall(Phaser.Math.Between(1000, 4000), spawnSparkBurst);
   }
 
   addRedLightGlow() {
@@ -1142,6 +1142,25 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     const flash = this.add.rectangle(center.x, center.y, this.cellSize - 12, this.cellSize - 12, color, 0.35).setDepth(239);
 
     this.cameras.main.shake(120, 0.003);
+
+    for (let i = 0; i < 12; i++) {
+      const angle = (i / 12) * Math.PI * 2;
+      const dist = 40 + Math.random() * 30;
+      const particle = this.add.circle(center.x, center.y, 4 + Math.random() * 4, color, 1).setDepth(241);
+      
+      this.tweens.add({
+        targets: particle,
+        x: center.x + Math.cos(angle) * dist,
+        y: center.y + Math.sin(angle) * dist,
+        alpha: 0,
+        scale: 0.1,
+        duration: 350 + Math.random() * 150,
+        ease: "Cubic.easeOut",
+        onComplete: () => {
+          particle.destroy();
+        }
+      });
+    }
 
     this.tweens.add({
       targets: ring,

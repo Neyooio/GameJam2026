@@ -476,6 +476,10 @@ export class OpeningScene extends Phaser.Scene {
       return;
     }
 
+    if (this.cache.audio.exists("uiClickSfx")) {
+      this.sound.play("uiClickSfx", { volume: 0.6 });
+    }
+
     this.isSkipping = true;
 
     if (this.skipText) {
