@@ -23,6 +23,13 @@ export class BootScene extends Phaser.Scene {
     this.load.audio("cicadaSfx", "public/assets/audio/sfx/Cicada.mp3");
     this.load.audio("staticSfx", "public/assets/audio/sfx/Static.mp3");
     this.load.audio("flatlineSfx", "public/assets/audio/sfx/Flatline.mp3");
+    this.load.audio("uiClickSfx", "public/assets/audio/sfx/ButtonClick.mp3");
+    this.load.audio("gameplayBgm", "public/assets/audio/music/gameplaySound.mp3");
+    this.load.audio("slideSfx", "public/assets/audio/sfx/slide.mp3");
+    this.load.audio("mergeSfx", "public/assets/audio/sfx/merge.mp3");
+    this.load.audio("comboRefreshingSfx", "public/assets/audio/sfx/Refreshing.mp3");
+    this.load.audio("comboSweetDrinkSfx", "public/assets/audio/sfx/SweetDrinks.mp3");
+    this.load.audio("comboColdBreezeSfx", "public/assets/audio/sfx/Coldbreeze.mp3");
   }
 
   async create() {
@@ -30,7 +37,7 @@ export class BootScene extends Phaser.Scene {
       try {
         await document.fonts.load('16px "Yoster"');
         await document.fonts.ready;
-      } catch (error) {
+      } catch {
         // Continue boot even if the Font Loading API fails.
       }
     }

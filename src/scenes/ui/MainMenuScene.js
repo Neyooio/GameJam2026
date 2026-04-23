@@ -178,8 +178,6 @@ export class MainMenuScene extends Phaser.Scene {
     const { width, height } = this.scale;
 
     // Colors matching the gritty environment
-    const panelFillColor = 0x2a211c;
-    const panelStrokeColor = 0x1f1612;
     const buttonFillColor = 0x3d3029;
     const accentColor = 0xf5b942;
     const textColor = "#f5e6d3";
@@ -191,136 +189,26 @@ export class MainMenuScene extends Phaser.Scene {
     const tutorialCenterY = groupCenterY;
     const exitCenterY = groupCenterY + 54;
 
-    // Button now acts as its own embedded element directly on the wall
-    this.playButtonShadow = this.add.rectangle(centerX - 2, centerY - 2, 140, 34, 0x000000, 0.6).setDepth(10);
-    this.playButton = this.add.rectangle(centerX, centerY, 140, 34, buttonFillColor, 0.9).setDepth(10);
-    this.playButton.setStrokeStyle(2, accentColor, 1);
+    const buttonStyles = {
+      buttonFillColor,
+      accentColor,
+      textColor,
+      textHoverColor,
+    };
 
-    this.playText = this.add
-      .text(centerX, centerY, "PLAY", {
-        fontFamily: "Yoster",
-        fontSize: "16px",
-        color: textColor,
-        shadow: { fill: true, offsetX: 1, offsetY: 1, color: "#000000", blur: 0 },
-      })
-      .setOrigin(0.5)
-      .setDepth(10);
+    const playEntry = this.createMenuButton(centerX, centerY, "PLAY", buttonStyles, () => this.startGameplay(false));
+    this.playButtonShadow = playEntry.shadow;
+    this.playButton = playEntry.button;
+    this.playText = playEntry.text;
+    this.playZone = playEntry.zone;
 
-    // Invisible, stationary hit box to prevent hover-jitter loops
-    // using a rectangle instead of a zone ensures stable hit-area configuration on all Phaser versions
-    this.playZone = this.add.rectangle(centerX, centerY, 140, 34, 0x000000, 0)
-      .setDepth(20)
-      .setInteractive({ useHandCursor: true });
+    const tutorialEntry = this.createMenuButton(centerX, tutorialCenterY, "TUTORIAL", buttonStyles, () => this.startGameplay(true));
+    this.tutorialButtonShadow = tutorialEntry.shadow;
+    this.tutorialButton = tutorialEntry.button;
+    this.tutorialText = tutorialEntry.text;
+    this.tutorialZone = tutorialEntry.zone;
 
-    this.playZone.on("pointerover", () => {
-      this.playHoverSfx();
-      this.playButton.setFillStyle(accentColor, 1);
-      this.playText.setColor(textHoverColor);
-      this.playText.setShadowOffset(0, 0); // Remove shadow when hovering for flat inset look
-      // Press slightly IN when hovering
-      this.playButton.setPosition(centerX - 1, centerY - 1);
-      this.playText.setPosition(centerX - 1, centerY - 1);
-    });
-
-    this.playZone.on("pointerout", () => {
-      this.playButton.setFillStyle(buttonFillColor, 0.9);
-      this.playText.setColor(textColor);
-      this.playText.setShadowOffset(1, 1);
-      this.playButton.setPosition(centerX, centerY);
-      this.playText.setPosition(centerX, centerY);
-    });
-
-    this.playZone.on("pointerdown", (pointer) => {
-      if (!pointer.leftButtonDown()) {
-        return;
-      }
-      this.startGameplay(false);
-    });
-
-    // Tutorial Button
-    this.tutorialButtonShadow = this.add.rectangle(centerX - 2, tutorialCenterY - 2, 140, 34, 0x000000, 0.6).setDepth(10);
-    this.tutorialButton = this.add.rectangle(centerX, tutorialCenterY, 140, 34, buttonFillColor, 0.9).setDepth(10);
-    this.tutorialButton.setStrokeStyle(2, accentColor, 1);
-
-    this.tutorialText = this.add
-      .text(centerX, tutorialCenterY, "TUTORIAL", {
-        fontFamily: "Yoster",
-        fontSize: "16px",
-        color: textColor,
-        shadow: { fill: true, offsetX: 1, offsetY: 1, color: "#000000", blur: 0 },
-      })
-      .setOrigin(0.5)
-      .setDepth(10);
-
-    this.tutorialZone = this.add.rectangle(centerX, tutorialCenterY, 140, 34, 0x000000, 0)
-      .setDepth(20)
-      .setInteractive({ useHandCursor: true });
-
-    this.tutorialZone.on("pointerover", () => {
-      this.playHoverSfx();
-      this.tutorialButton.setFillStyle(accentColor, 1);
-      this.tutorialText.setColor(textHoverColor);
-      this.tutorialText.setShadowOffset(0, 0);
-      this.tutorialButton.setPosition(centerX - 1, tutorialCenterY - 1);
-      this.tutorialText.setPosition(centerX - 1, tutorialCenterY - 1);
-    });
-
-    this.tutorialZone.on("pointerout", () => {
-      this.tutorialButton.setFillStyle(buttonFillColor, 0.9);
-      this.tutorialText.setColor(textColor);
-      this.tutorialText.setShadowOffset(1, 1);
-      this.tutorialButton.setPosition(centerX, tutorialCenterY);
-      this.tutorialText.setPosition(centerX, tutorialCenterY);
-    });
-
-    this.tutorialZone.on("pointerdown", (pointer) => {
-      if (!pointer.leftButtonDown()) {
-        return;
-      }
-      this.startGameplay(true);
-    });
-
-    // Exit Button
-    this.exitButtonShadow = this.add.rectangle(centerX - 2, exitCenterY - 2, 140, 34, 0x000000, 0.6).setDepth(10);
-    this.exitButton = this.add.rectangle(centerX, exitCenterY, 140, 34, buttonFillColor, 0.9).setDepth(10);
-    this.exitButton.setStrokeStyle(2, accentColor, 1);
-
-    this.exitText = this.add
-      .text(centerX, exitCenterY, "EXIT", {
-        fontFamily: "Yoster",
-        fontSize: "16px",
-        color: textColor,
-        shadow: { fill: true, offsetX: 1, offsetY: 1, color: "#000000", blur: 0 },
-      })
-      .setOrigin(0.5)
-      .setDepth(10);
-
-    this.exitZone = this.add.rectangle(centerX, exitCenterY, 140, 34, 0x000000, 0)
-      .setDepth(20)
-      .setInteractive({ useHandCursor: true });
-
-    this.exitZone.on("pointerover", () => {
-      this.playHoverSfx();
-      this.exitButton.setFillStyle(accentColor, 1);
-      this.exitText.setColor(textHoverColor);
-      this.exitText.setShadowOffset(0, 0);
-      this.exitButton.setPosition(centerX - 1, exitCenterY - 1);
-      this.exitText.setPosition(centerX - 1, exitCenterY - 1);
-    });
-
-    this.exitZone.on("pointerout", () => {
-      this.exitButton.setFillStyle(buttonFillColor, 0.9);
-      this.exitText.setColor(textColor);
-      this.exitText.setShadowOffset(1, 1);
-      this.exitButton.setPosition(centerX, exitCenterY);
-      this.exitText.setPosition(centerX, exitCenterY);
-    });
-
-    this.exitZone.on("pointerdown", (pointer) => {
-      if (!pointer.leftButtonDown()) {
-        return;
-      }
-
+    const exitEntry = this.createMenuButton(centerX, exitCenterY, "EXIT", buttonStyles, () => {
       if (this.cache.audio.exists("uiClickSfx")) {
         this.sound.play("uiClickSfx", { volume: 0.6 });
       }
@@ -330,6 +218,76 @@ export class MainMenuScene extends Phaser.Scene {
         this.game.destroy(true);
       });
     });
+    this.exitButtonShadow = exitEntry.shadow;
+    this.exitButton = exitEntry.button;
+    this.exitText = exitEntry.text;
+    this.exitZone = exitEntry.zone;
+  }
+
+  createMenuButton(centerX, centerY, label, styles, onClick) {
+    const { buttonFillColor, accentColor, textColor, textHoverColor } = styles;
+
+    const shadow = this.add.rectangle(centerX - 2, centerY - 2, 140, 34, 0x000000, 0.6).setDepth(10);
+    const button = this.add.rectangle(centerX, centerY, 140, 34, buttonFillColor, 0.9).setDepth(10);
+    button.setStrokeStyle(2, accentColor, 1);
+
+    const text = this.add
+      .text(centerX, centerY, label, {
+        fontFamily: "Yoster",
+        fontSize: "16px",
+        color: textColor,
+        shadow: { fill: true, offsetX: 1, offsetY: 1, color: "#000000", blur: 0 },
+      })
+      .setOrigin(0.5)
+      .setDepth(10);
+
+    const zone = this.add.rectangle(centerX, centerY, 140, 34, 0x000000, 0)
+      .setDepth(20)
+      .setInteractive({ useHandCursor: true });
+
+    zone.on("pointerover", () => {
+      this.playHoverSfx();
+      button.setFillStyle(accentColor, 1);
+      text.setColor(textHoverColor);
+      text.setShadowOffset(0, 0);
+      button.setPosition(centerX - 1, centerY - 1);
+      text.setPosition(centerX - 1, centerY - 1);
+    });
+
+    zone.on("pointerout", () => {
+      button.setFillStyle(buttonFillColor, 0.9);
+      text.setColor(textColor);
+      text.setShadowOffset(1, 1);
+      button.setPosition(centerX, centerY);
+      text.setPosition(centerX, centerY);
+    });
+
+    zone.on("pointerdown", (pointer) => {
+      if (!pointer.leftButtonDown()) {
+        return;
+      }
+      onClick();
+    });
+
+    return { shadow, button, text, zone };
+  }
+
+  setMenuButtonPosition(shadow, button, text, zone, centerX, centerY) {
+    if (shadow) {
+      shadow.setPosition(centerX - 2, centerY - 2);
+    }
+
+    if (button) {
+      button.setPosition(centerX, centerY);
+    }
+
+    if (text) {
+      text.setPosition(centerX, centerY);
+    }
+
+    if (zone) {
+      zone.setPosition(centerX, centerY);
+    }
   }
 
   startGameplay(tutorialMode) {
@@ -641,53 +599,16 @@ export class MainMenuScene extends Phaser.Scene {
     const tutorialCenterY = groupCenterY;
     const exitCenterY = groupCenterY + 54;
 
-    if (this.playButtonShadow) {
-      this.playButtonShadow.setPosition(centerX - 2, centerY - 2);
-    }
-
-    if (this.playButton) {
-      this.playButton.setPosition(centerX, centerY);
-    }
-
-    if (this.playText) {
-      this.playText.setPosition(centerX, centerY);
-    }
-
-    if (this.playZone) {
-      this.playZone.setPosition(centerX, centerY);
-    }
-
-    if (this.tutorialButtonShadow) {
-      this.tutorialButtonShadow.setPosition(centerX - 2, tutorialCenterY - 2);
-    }
-
-    if (this.tutorialButton) {
-      this.tutorialButton.setPosition(centerX, tutorialCenterY);
-    }
-
-    if (this.tutorialText) {
-      this.tutorialText.setPosition(centerX, tutorialCenterY);
-    }
-
-    if (this.tutorialZone) {
-      this.tutorialZone.setPosition(centerX, tutorialCenterY);
-    }
-
-    if (this.exitButtonShadow) {
-      this.exitButtonShadow.setPosition(centerX - 2, exitCenterY - 2);
-    }
-
-    if (this.exitButton) {
-      this.exitButton.setPosition(centerX, exitCenterY);
-    }
-
-    if (this.exitText) {
-      this.exitText.setPosition(centerX, exitCenterY);
-    }
-
-    if (this.exitZone) {
-      this.exitZone.setPosition(centerX, exitCenterY);
-    }
+    this.setMenuButtonPosition(this.playButtonShadow, this.playButton, this.playText, this.playZone, centerX, centerY);
+    this.setMenuButtonPosition(
+      this.tutorialButtonShadow,
+      this.tutorialButton,
+      this.tutorialText,
+      this.tutorialZone,
+      centerX,
+      tutorialCenterY,
+    );
+    this.setMenuButtonPosition(this.exitButtonShadow, this.exitButton, this.exitText, this.exitZone, centerX, exitCenterY);
 
     if (this.titleLines.length) {
       const leftX = width * 0.19;
