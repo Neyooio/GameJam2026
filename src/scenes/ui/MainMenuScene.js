@@ -41,13 +41,15 @@ export class MainMenuScene extends Phaser.Scene {
     this.cameras.main.resetFX();
     this.cameras.main.setAlpha(1);
 
-    const menuBgm = this.sound.get("menuBgm");
+    let menuBgm = this.sound.get("menuBgm");
+    if (!menuBgm && this.cache.audio.exists("menuBgm")) {
+      menuBgm = this.sound.add("menuBgm", { loop: true, volume: 0.32 });
+    }
     if (menuBgm) {
+      menuBgm.setMute(this.registry.get("muteBgm") || false);
       if (!menuBgm.isPlaying) {
-        menuBgm.play({ loop: true, volume: 0.32 });
+        menuBgm.play();
       }
-    } else {
-      this.sound.play("menuBgm", { loop: true, volume: 0.32 });
     }
 
     this.backgroundImages = this.backgroundKeys.map((key, index) => {
@@ -209,7 +211,7 @@ export class MainMenuScene extends Phaser.Scene {
     this.tutorialZone = tutorialEntry.zone;
 
     const exitEntry = this.createMenuButton(centerX, exitCenterY, "EXIT", buttonStyles, () => {
-      if (this.cache.audio.exists("uiClickSfx")) {
+      if (!this.registry.get("muteSfx") && this.cache.audio.exists("uiClickSfx")) {
         this.sound.play("uiClickSfx", { volume: 0.6 });
       }
 
@@ -222,6 +224,66 @@ export class MainMenuScene extends Phaser.Scene {
     this.exitButton = exitEntry.button;
     this.exitText = exitEntry.text;
     this.exitZone = exitEntry.zone;
+
+    this.createMuteButtons();
+  }
+
+  createMuteButtons() {
+    const { width, height } = this.scale;
+    const sfxBtnX = width - 36;
+    const bgmBtnX = width - 84;
+    const btnY = height - 28;
+
+    const buttonFillColor = 0x3d3029;
+    const accentColor = 0xf5b942;
+    const textColor = "#f5e6d3";
+    
+    // BGM Button
+    const isBgmMuted = this.registry.get("muteBgm") || false;
+    const bgmShadow = this.add.rectangle(bgmBtnX - 1, btnY - 1, 40, 36, 0x000000, 0.6).setDepth(10);
+    const bgmBox = this.add.rectangle(bgmBtnX, btnY, 40, 36, buttonFillColor, 0.9).setStrokeStyle(2, accentColor, 1).setDepth(10);
+    const bgmBtn = this.add.text(bgmBtnX, btnY, isBgmMuted ? "♪\nOFF" : "♪\nON", {
+      fontFamily: "Yoster", fontSize: "10px", color: textColor, align: "center"
+    }).setOrigin(0.5).setDepth(11);
+    
+    const bgmZone = this.add.rectangle(bgmBtnX, btnY, 40, 36, 0x000000, 0).setInteractive({ useHandCursor: true }).setDepth(20);
+    
+    bgmZone.on("pointerdown", (pointer) => {
+      if (!pointer.leftButtonDown()) return;
+      const currentlyMuted = this.registry.get("muteBgm") || false;
+      const nextMute = !currentlyMuted;
+      this.registry.set("muteBgm", nextMute);
+      bgmBtn.setText(nextMute ? "♪\nOFF" : "♪\nON");
+
+      const menuBgm = this.sound.get("menuBgm");
+      if (menuBgm) menuBgm.setMute(nextMute);
+
+      if (!this.registry.get("muteSfx") && this.cache.audio.exists("uiClickSfx")) {
+        this.sound.play("uiClickSfx", { volume: 0.6 });
+      }
+    });
+
+    // SFX Button
+    const isSfxMuted = this.registry.get("muteSfx") || false;
+    const sfxShadow = this.add.rectangle(sfxBtnX - 1, btnY - 1, 40, 36, 0x000000, 0.6).setDepth(10);
+    const sfxBox = this.add.rectangle(sfxBtnX, btnY, 40, 36, buttonFillColor, 0.9).setStrokeStyle(2, accentColor, 1).setDepth(10);
+    const sfxBtn = this.add.text(sfxBtnX, btnY, isSfxMuted ? "🔊\nOFF" : "🔊\nON", {
+      fontFamily: "Yoster", fontSize: "10px", color: textColor, align: "center"
+    }).setOrigin(0.5).setDepth(11);
+
+    const sfxZone = this.add.rectangle(sfxBtnX, btnY, 40, 36, 0x000000, 0).setInteractive({ useHandCursor: true }).setDepth(20);
+
+    sfxZone.on("pointerdown", (pointer) => {
+      if (!pointer.leftButtonDown()) return;
+      const currentlyMuted = this.registry.get("muteSfx") || false;
+      const nextMute = !currentlyMuted;
+      this.registry.set("muteSfx", nextMute);
+      sfxBtn.setText(nextMute ? "🔊\nOFF" : "🔊\nON");
+
+      if (!nextMute && this.cache.audio.exists("uiClickSfx")) {
+        this.sound.play("uiClickSfx", { volume: 0.6 });
+      }
+    });
   }
 
   createMenuButton(centerX, centerY, label, styles, onClick) {
@@ -297,7 +359,7 @@ export class MainMenuScene extends Phaser.Scene {
 
     this.isStartingGame = true;
 
-    if (this.cache.audio.exists("uiClickSfx")) {
+    if (!this.registry.get("muteSfx") && this.cache.audio.exists("uiClickSfx")) {
       this.sound.play("uiClickSfx", { volume: 0.6 });
     }
 
@@ -640,7 +702,7 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   playHoverSfx() {
-    if (!this.cache.audio.exists("uiHoverSfx")) {
+    if (this.registry.get("muteSfx") || !this.cache.audio.exists("uiHoverSfx")) {
       return;
     }
 

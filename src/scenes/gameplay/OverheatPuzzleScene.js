@@ -226,6 +226,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     if (this.gameplayBgm) {
       this.gameplayBgm.setLoop(true);
       this.gameplayBgm.setVolume(0.42);
+      this.gameplayBgm.setMute(this.registry.get("muteBgm") || false);
       if (!this.gameplayBgm.isPlaying) {
         this.gameplayBgm.play();
       }
@@ -239,7 +240,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
   }
 
   playSfx(key, config = {}) {
-    if (!this.sys || !this.sys.isActive() || !this.sound || !this.cache.audio.exists(key)) {
+    if (this.registry.get("muteSfx") || !this.sys || !this.sys.isActive() || !this.sound || !this.cache.audio.exists(key)) {
       return;
     }
 
@@ -254,7 +255,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
   }
 
   playExclusiveComboSfx(key, volume) {
-    if (!this.sys || !this.sys.isActive() || !this.sound || !this.cache.audio.exists(key)) {
+    if (this.registry.get("muteSfx") || !this.sys || !this.sys.isActive() || !this.sound || !this.cache.audio.exists(key)) {
       return;
     }
 
@@ -1306,7 +1307,9 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       }
 
       this.freshenUpSfx.setVolume(0.78);
-      this.freshenUpSfx.play({ volume: 0.78 });
+      if (!this.registry.get("muteSfx")) {
+        this.freshenUpSfx.play({ volume: 0.78 });
+      }
     }
 
     // Clean up previous particles
