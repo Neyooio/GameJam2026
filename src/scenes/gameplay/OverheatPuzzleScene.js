@@ -1297,7 +1297,22 @@ export class OverheatPuzzleScene extends Phaser.Scene {
           const finishTurn = () => {
             this.checkLoseCondition(() => {
               this.refreshAll();
-              this.isResolving = false;
+              if (this.gameOver) {
+                this.isResolving = false;
+                return;
+              }
+              const canShuffle = this.turnCount > 100 &&
+                !this.heatPhaseActive && !this.coldSnapPhaseActive &&
+                !this.heatPhaseTriggered && !this.coldSnapPhaseTriggered &&
+                !this.heatPhaseEndedTriggered && !this.coldSnapPhaseEndedTriggered;
+
+              if (canShuffle && Math.random() < 0.4) {
+                this.playBoardShuffleAnimation(() => {
+                  this.isResolving = false;
+                });
+              } else {
+                this.isResolving = false;
+              }
             });
           };
 
@@ -2360,6 +2375,108 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       onComplete: () => {
         this.tweens.add({ targets: this.cutIn.title, scaleX: 1.04, scaleY: 1.04, duration: 140, yoyo: true, repeat: 1, ease: "Sine.easeInOut" });
       },
+    });
+  }
+
+  playBoardShuffleAnimation(onComplete) {
+    const validCoords = [];
+    const validTiles = [];
+
+    for (let y = 0; y < this.gridSize; y++) {
+      for (let x = 0; x < this.gridSize; x++) {
+        const tile = this.board[y][x];
+        if (tile && tile.type !== "ice" && this.freezeTurns[y][x] === 0) {
+          validCoords.push({ x, y });
+          validTiles.push(tile);
+          this.board[y][x] = null;
+        }
+      }
+    }
+
+    if (validCoords.length < 2) {
+      if (onComplete) onComplete();
+      return;
+    }
+
+    Phaser.Utils.Array.Shuffle(validTiles);
+    this.playSfx("slideSfx", { volume: 0.5 });
+    
+    const targets = [];
+    validCoords.forEach((coord) => {
+      const idx = coord.y * this.gridSize + coord.x;
+      const spriteBase = this.tileSpritesBase[idx];
+      const sprite = this.tileSprites[idx];
+      if (spriteBase) targets.push(spriteBase);
+      if (sprite) targets.push(sprite);
+    });
+
+    this.tweens.add({
+      targets: targets,
+      scaleX: 0,
+      scaleY: 0,
+      alpha: 0,
+      duration: 400,
+      ease: "Back.easeIn",
+      onUpdate: (tween, target) => {
+        if (target.originalX === undefined) {
+          target.originalX = target.x;
+          target.originalY = target.y;
+        }
+        target.x = target.originalX + Phaser.Math.Between(-3, 3);
+        target.y = target.originalY + Phaser.Math.Between(-3, 3);
+      },
+      onComplete: () => {
+        targets.forEach(t => {
+          if (t.originalX !== undefined) {
+            t.x = t.originalX;
+            t.y = t.originalY;
+            delete t.originalX;
+            delete t.originalY;
+          }
+        });
+
+        for (let i = 0; i < validCoords.length; i++) {
+          const coord = validCoords[i];
+          this.board[coord.y][coord.x] = validTiles[i];
+        }
+
+        this.refreshAll();
+        
+        const newTargets = [];
+        validCoords.forEach((coord) => {
+          const idx = coord.y * this.gridSize + coord.x;
+          const spriteBase = this.tileSpritesBase[idx];
+          const sprite = this.tileSprites[idx];
+          if (spriteBase) {
+            spriteBase.targetScale = spriteBase.scaleX || 1;
+            spriteBase.setScale(0).setAlpha(0);
+            newTargets.push(spriteBase);
+          }
+          if (sprite) {
+            sprite.targetScale = sprite.scaleX || 1;
+            sprite.setScale(0).setAlpha(0);
+            newTargets.push(sprite);
+          }
+        });
+
+        this.playSfx("popSfx", { volume: 0.5 });
+
+        this.tweens.add({
+          targets: newTargets,
+          scaleX: (target) => target.targetScale,
+          scaleY: (target) => target.targetScale,
+          alpha: (target) => {
+            return this.tileSpritesBase.includes(target) ? 0.6 : 1;
+          },
+          duration: 400,
+          ease: "Back.easeOut",
+          onComplete: () => {
+            newTargets.forEach(t => delete t.targetScale);
+            this.refreshAll();
+            if (onComplete) onComplete();
+          }
+        });
+      }
     });
   }
 
