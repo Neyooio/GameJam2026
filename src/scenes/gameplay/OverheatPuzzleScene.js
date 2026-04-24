@@ -1306,7 +1306,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
                 !this.heatPhaseTriggered && !this.coldSnapPhaseTriggered &&
                 !this.heatPhaseEndedTriggered && !this.coldSnapPhaseEndedTriggered;
 
-              if (canShuffle && Math.random() < 0.4) {
+              if (canShuffle && Math.random() < 0.2) {
                 this.playBoardShuffleAnimation(() => {
                   this.isResolving = false;
                 });
