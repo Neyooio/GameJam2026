@@ -15,6 +15,11 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     this.gameOver = false;
     this.isResolving = false;
     this.tutorialMode = false;
+    this.heatPhaseMoveThreshold = 50;
+    this.heatPhaseDurationMoves = 6;
+    this.heatPhaseActive = false;
+    this.heatPhaseTriggered = false;
+    this.heatPhaseMovesRemaining = 0;
 
     this.iceCoreMax = 20;
     this.iceCore = 16;
@@ -84,8 +89,13 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       particles: [],
     };
 
+    this.heatBoardOutline = null;
+    this.heatBoardGlow = null;
+
     this.gameplayBgm = null;
     this.freshenUpSfx = null;
+    this.heatIntensifiesSfx = null;
+    this.activeHeatCutInState = null;
     this.comboSfxByKey = {};
     this.activeComboSfx = null;
     this.activeColaBurstSound = null;
@@ -101,6 +111,9 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     this.customerText = null;
 
     this.iceMeltCause = null;
+    this.coffeeBurstsThisInstance = 0;
+    this.coffeeCoreGainsThisInstance = 0;
+    this.coffeeInstanceStartIceCore = 0;
     this.lowCoreFx = {
       active: false,
       shakeIdx: -1,
@@ -209,6 +222,9 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     this.score = 0;
     this.gameOver = false;
     this.isResolving = false;
+    this.heatPhaseActive = false;
+    this.heatPhaseTriggered = false;
+    this.heatPhaseMovesRemaining = 0;
 
     this.coffeePassiveInterval = 3;
     this.resetTurnComboState();
@@ -220,6 +236,9 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     this.customerCooldown = 5;
 
     this.iceMeltCause = null;
+    this.coffeeBurstsThisInstance = 0;
+    this.coffeeCoreGainsThisInstance = 0;
+    this.coffeeInstanceStartIceCore = this.iceCore;
     this.lowCoreFx.active = false;
     this.lowCoreFx.shakeIdx = -1;
     this.lowCoreFx.lastMeltParticleAt = 0;
@@ -740,6 +759,23 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     this.tileSprites = [];
     this.freezeTexts = [];
 
+    const boardWidth = this.gridSize * this.cellSize - 8;
+    const boardHeight = this.gridSize * this.cellSize - 8;
+    const boardCenterX = this.boardX + boardWidth * 0.5;
+    const boardCenterY = this.boardY + boardHeight * 0.5;
+
+    this.heatBoardGlow = this.add
+      .rectangle(boardCenterX, boardCenterY, boardWidth + 18, boardHeight + 18, 0xff8f2f, 0)
+      .setStrokeStyle(8, 0xff8f2f, 0)
+      .setDepth(218)
+      .setVisible(false);
+
+    this.heatBoardOutline = this.add
+      .rectangle(boardCenterX, boardCenterY, boardWidth + 8, boardHeight + 8, 0xffa24a, 0)
+      .setStrokeStyle(4, 0xffa24a, 0)
+      .setDepth(219)
+      .setVisible(false);
+
     for (let y = 0; y < this.gridSize; y += 1) {
       for (let x = 0; x < this.gridSize; x += 1) {
         const px = this.boardX + x * this.cellSize;
@@ -1004,6 +1040,12 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       this.input.keyboard.off("keydown-DOWN");
       this.input.keyboard.off("keydown-LEFT");
       this.input.keyboard.off("keydown-RIGHT");
+
+      if (this.activeHeatCutInState && this.activeHeatCutInState.cleanup) {
+        this.activeHeatCutInState.cleanup();
+        this.activeHeatCutInState = null;
+      }
+
       this.cleanupTransientAnimationState(true);
       this.stopComboTierSounds();
       this.stopLowIceCoreEffects();
@@ -1019,6 +1061,14 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       if (this.freshenUpSfx) {
         this.freshenUpSfx.destroy();
         this.freshenUpSfx = null;
+      }
+
+      if (this.heatIntensifiesSfx) {
+        if (this.heatIntensifiesSfx.isPlaying) {
+          this.heatIntensifiesSfx.stop();
+        }
+        this.heatIntensifiesSfx.destroy();
+        this.heatIntensifiesSfx = null;
       }
 
       Object.values(this.comboSfxByKey).forEach((sfx) => {
@@ -1146,6 +1196,8 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     this.turnCount += 1;
     this.resetTurnComboState();
 
+    this.checkHeatPhaseProgression();
+
     this.playSfx("slideSfx", { volume: 0.22 });
     if (result.merges.length > 0) {
       this.playSfx("mergeSfx", { volume: 0.34 });
@@ -1168,26 +1220,373 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       // Force visual state refresh so all charge bars are correctly filled and score updates BEFORE bursts trigger.
       this.refreshAll();
 
-      const bursts = this.collectBurstTriggers(result.merges);
-      this.resolveBurstQueue(bursts, () => {
-        this.applyCoffeePassive();
-        this.tickFreezeTurns();
-        this.updateCustomer();
-        this.normalizeIceState();
-        this.checkLoseCondition(() => {
-          this.refreshAll();
-          this.isResolving = false;
+      const continueTurnResolution = () => {
+        const bursts = this.collectBurstTriggers(result.merges);
+        this.coffeeBurstsThisInstance = 0;
+        this.coffeeCoreGainsThisInstance = 0;
+        this.coffeeInstanceStartIceCore = this.iceCore;
+        this.resolveBurstQueue(bursts, () => {
+          this.applyCoffeePassive();
+          this.tickFreezeTurns();
+          this.updateCustomer();
+          this.advanceHeatPhaseTurn();
+          this.normalizeIceState();
+          this.checkLoseCondition(() => {
+            this.refreshAll();
+            this.isResolving = false;
+          });
         });
-      });
+      };
+
+      if (this.heatPhaseTriggered) {
+        this.heatPhaseTriggered = false;
+        this.playHeatIntensifiesCutIn(continueTurnResolution);
+      } else {
+        continueTurnResolution();
+      }
     });
   }
 
   applyMoveDecay(hadMerge = false) {
+    if (this.heatPhaseActive) {
+      this.iceCore = Math.max(0, this.iceCore - 2);
+      return;
+    }
+
     if (hadMerge) {
       return;
     }
 
     this.iceCore = Math.max(0, this.iceCore - 1);
+  }
+
+  checkHeatPhaseProgression() {
+    if (this.heatPhaseActive || this.turnCount < this.heatPhaseMoveThreshold) {
+      return;
+    }
+
+    this.heatPhaseActive = true;
+    this.heatPhaseTriggered = true;
+    this.heatPhaseMovesRemaining = this.heatPhaseDurationMoves;
+    this.coffeePassiveInterval = 4;
+    this.setMessage("Heat Intensifies! Ice Core drains -2 each slide. Coffee spreads every 4 slides.", "#ffbb88");
+    this.activateHeatBoardOutline();
+  }
+
+  advanceHeatPhaseTurn() {
+    if (!this.heatPhaseActive) {
+      return;
+    }
+
+    this.heatPhaseMovesRemaining = Math.max(0, this.heatPhaseMovesRemaining - 1);
+    if (this.heatPhaseMovesRemaining > 0) {
+      return;
+    }
+
+    this.heatPhaseActive = false;
+    this.coffeePassiveInterval = 3;
+    this.deactivateHeatBoardOutline();
+    this.setMessage("Heat surge fades. Ice Core drain and coffee spread return to normal.", "#ffd5aa");
+  }
+
+  activateHeatBoardOutline() {
+    if (!this.heatBoardOutline || !this.heatBoardGlow) {
+      return;
+    }
+
+    this.tweens.killTweensOf(this.heatBoardGlow);
+    this.tweens.killTweensOf(this.heatBoardOutline);
+
+    this.heatBoardGlow.setVisible(true).setAlpha(0.35).setStrokeStyle(8, 0xff8f2f, 0.35);
+    this.heatBoardOutline.setVisible(true).setAlpha(1).setStrokeStyle(4, 0xffa24a, 1);
+
+    this.tweens.add({
+      targets: this.heatBoardGlow,
+      alpha: { from: 0.18, to: 0.48 },
+      duration: 760,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
+
+    this.tweens.add({
+      targets: this.heatBoardOutline,
+      alpha: { from: 0.78, to: 1 },
+      duration: 560,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
+  }
+
+  deactivateHeatBoardOutline() {
+    if (!this.heatBoardOutline || !this.heatBoardGlow) {
+      return;
+    }
+
+    this.tweens.killTweensOf(this.heatBoardGlow);
+    this.tweens.killTweensOf(this.heatBoardOutline);
+
+    this.tweens.add({
+      targets: [this.heatBoardGlow, this.heatBoardOutline],
+      alpha: 0,
+      duration: 260,
+      ease: "Quad.easeOut",
+      onComplete: () => {
+        this.heatBoardGlow.setVisible(false).setAlpha(0);
+        this.heatBoardOutline.setVisible(false).setAlpha(0);
+      },
+    });
+  }
+
+  playHeatIntensifiesCutIn(done) {
+    const { width, height } = this.scale;
+    const minCutInDuration = 3000;
+    const exitDuration = 220;
+    let hasExited = false;
+    let canExitForTime = false;
+    let canExitForSfx = false;
+    let minDurationTimer = null;
+    let detachSfxCompleteListener = null;
+
+    if (this.activeHeatCutInState && this.activeHeatCutInState.cleanup) {
+      this.activeHeatCutInState.cleanup();
+      this.activeHeatCutInState = null;
+    }
+
+    const beginExit = () => {
+      if (hasExited || !canExitForTime || !canExitForSfx) {
+        return;
+      }
+
+      hasExited = true;
+      if (detachSfxCompleteListener) {
+        detachSfxCompleteListener();
+      }
+      if (this.activeHeatCutInState) {
+        this.activeHeatCutInState = null;
+      }
+
+      this.tweens.add({
+        targets: [
+          this.cutIn.stripe,
+          this.cutIn.stripeAccent,
+          this.cutIn.stripeAccentTop,
+          this.cutIn.title,
+          this.cutIn.subtitle,
+          this.cutIn.sprite,
+          this.cutIn.spriteShadow,
+        ],
+        y: "-=240",
+        alpha: 0,
+        duration: exitDuration,
+        ease: "Cubic.easeIn",
+      });
+
+      this.tweens.add({
+        targets: this.cutIn.overlay,
+        alpha: 0,
+        duration: exitDuration,
+        delay: 40,
+        onComplete: () => {
+          this.cutIn.overlay.setVisible(false);
+          this.cutIn.stripe.setVisible(false).setAngle(-2);
+          this.cutIn.stripeAccent.setVisible(false).setAngle(-2);
+          this.cutIn.stripeAccentTop.setVisible(false).setAngle(-2);
+          this.cutIn.title.setVisible(false).setAlpha(1).setScale(1).setColor("#ffffff");
+          this.cutIn.subtitle.setVisible(false).setAlpha(1).setScale(1).setColor("#d4e8f7");
+          this.cutIn.sprite.setVisible(false).setAlpha(1).setAngle(0).clearTint();
+          this.cutIn.spriteShadow.setVisible(false).setAlpha(0).setAngle(0).clearTint();
+
+          this.cutIn.particles.forEach((p) => p.destroy());
+          this.cutIn.particles = [];
+
+          if (done) {
+            done();
+          }
+        },
+      });
+    };
+
+    const markSfxReady = () => {
+      canExitForSfx = true;
+      beginExit();
+    };
+
+    const cleanupCutInState = () => {
+      if (minDurationTimer) {
+        minDurationTimer.remove(false);
+        minDurationTimer = null;
+      }
+
+      if (detachSfxCompleteListener) {
+        detachSfxCompleteListener();
+      }
+
+      hasExited = true;
+    };
+
+    this.activeHeatCutInState = {
+      cleanup: cleanupCutInState,
+    };
+
+    minDurationTimer = this.time.delayedCall(minCutInDuration, () => {
+      minDurationTimer = null;
+      canExitForTime = true;
+      beginExit();
+    });
+
+    if (!this.registry.get("muteSfx") && this.sys && this.sys.isActive() && this.sound && this.cache.audio.exists("heatIntensifiesSfx")) {
+      if (!this.heatIntensifiesSfx) {
+        this.heatIntensifiesSfx = this.sound.add("heatIntensifiesSfx", { volume: 0.9 });
+      }
+
+      if (this.heatIntensifiesSfx.isPlaying) {
+        this.heatIntensifiesSfx.stop();
+      }
+
+      this.heatIntensifiesSfx.setVolume(0.9);
+      this.heatIntensifiesSfx.play({ volume: 0.9 });
+
+      if (this.heatIntensifiesSfx.isPlaying) {
+        const onSfxComplete = () => {
+          markSfxReady();
+        };
+
+        this.heatIntensifiesSfx.once("complete", onSfxComplete);
+        detachSfxCompleteListener = () => {
+          if (!this.heatIntensifiesSfx) {
+            detachSfxCompleteListener = null;
+            return;
+          }
+
+          this.heatIntensifiesSfx.off("complete", onSfxComplete);
+          detachSfxCompleteListener = null;
+        };
+      } else {
+        canExitForSfx = true;
+      }
+    } else {
+      canExitForSfx = true;
+    }
+
+    this.cutIn.particles.forEach((p) => p.destroy());
+    this.cutIn.particles = [];
+
+    this.cutIn.overlay.setVisible(true).setAlpha(0);
+    this.tweens.add({
+      targets: this.cutIn.overlay,
+      alpha: 0.5,
+      duration: 130,
+    });
+
+    this.cutIn.stripe
+      .setVisible(true)
+      .setFillStyle(0x4a1e08, 0.95)
+      .setPosition(width * 0.5, height + 120)
+      .setDisplaySize(width * 0.86, 148)
+      .setAngle(0)
+      .setAlpha(1);
+
+    this.cutIn.stripeAccent
+      .setVisible(true)
+      .setFillStyle(0xff8f2f, 0.95)
+      .setPosition(width * 0.5, height + 188)
+      .setDisplaySize(width * 0.86, 5)
+      .setAngle(0)
+      .setAlpha(0.85);
+
+    this.cutIn.stripeAccentTop
+      .setVisible(true)
+      .setFillStyle(0xffc166, 0.92)
+      .setPosition(width * 0.5, height + 52)
+      .setDisplaySize(width * 0.86, 5)
+      .setAngle(0)
+      .setAlpha(0.9);
+
+    this.cutIn.title
+      .setVisible(true)
+      .setText("Heat Intensifies!!")
+      .setColor("#ffd39a")
+      .setPosition(width * 0.5, height + 98)
+      .setAlpha(1)
+      .setScale(0.9);
+
+    this.cutIn.subtitle
+      .setVisible(true)
+      .setText("ICE CORE DRAIN SPIKES")
+      .setColor("#ffb066")
+      .setPosition(width * 0.5, height + 130)
+      .setAlpha(0.95)
+      .setScale(1);
+
+    this.cutIn.sprite
+      .setVisible(true)
+      .setTexture("propIce")
+      .setPosition(width * 0.5 - 260, height + 120)
+      .setAlpha(0.95)
+      .setAngle(-8)
+      .setTint(0xffb366);
+
+    this.cutIn.spriteShadow
+      .setVisible(true)
+      .setTexture("propIce")
+      .setPosition(width * 0.5 - 248, height + 136)
+      .setAlpha(0.34)
+      .setAngle(-8)
+      .setTint(0x000000);
+
+    const source = this.cutIn.sprite.texture.getSourceImage();
+    const spriteW = source.width || 1;
+    const spriteH = source.height || 1;
+    const spriteRatio = Math.min(118 / spriteW, 136 / spriteH);
+    this.cutIn.sprite.setScale(spriteRatio);
+
+    for (let i = 0; i < 16; i += 1) {
+      const ember = this.add
+        .circle(width * 0.5 + Phaser.Math.Between(-290, 290), height + Phaser.Math.Between(20, 180), Phaser.Math.Between(2, 4), 0xff9d3a, 0.8)
+        .setDepth(252);
+      this.cutIn.particles.push(ember);
+
+      this.tweens.add({
+        targets: ember,
+        y: ember.y - Phaser.Math.Between(80, 180),
+        x: ember.x + Phaser.Math.Between(-16, 16),
+        alpha: 0,
+        scale: 0.3,
+        duration: Phaser.Math.Between(420, 760),
+        delay: Phaser.Math.Between(0, 120),
+        ease: "Cubic.easeOut",
+      });
+    }
+
+    this.cameras.main.shake(220, 0.0038);
+
+    this.tweens.add({
+      targets: [
+        this.cutIn.stripe,
+        this.cutIn.stripeAccent,
+        this.cutIn.stripeAccentTop,
+        this.cutIn.title,
+        this.cutIn.subtitle,
+        this.cutIn.sprite,
+        this.cutIn.spriteShadow,
+      ],
+      y: "-=320",
+      duration: 260,
+      ease: "Back.easeOut",
+      onComplete: () => {
+        this.tweens.add({
+          targets: this.cutIn.title,
+          scaleX: 1.04,
+          scaleY: 1.04,
+          duration: 140,
+          yoyo: true,
+          repeat: 1,
+          ease: "Sine.easeInOut",
+        });
+      },
+    });
   }
 
   resolveIceMerges(merges) {
@@ -1259,7 +1658,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     return bursts;
   }
 
-  resolveBurstQueue(queue, onComplete, chainState = { coffeeFreshenPlayed: false, coffeeBurstRemovals: 0 }) {
+  resolveBurstQueue(queue, onComplete, chainState = { coffeeFreshenPlayed: false }) {
     if (!queue.length) {
       const extraBursts = this.collectBurstTriggers([]);
       if (extraBursts.length > 0) {
@@ -2115,17 +2514,20 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     }
 
     if (type === "coffee") {
-      if (chainState && typeof chainState.coffeeBurstRemovals === "number") {
-        chainState.coffeeBurstRemovals += 1;
-      }
+      this.coffeeBurstsThisInstance += 1;
 
-      const coffeeBurstsThisChain = chainState && typeof chainState.coffeeBurstRemovals === "number"
-        ? chainState.coffeeBurstRemovals
-        : 1;
+      if (this.coffeeCoreGainsThisInstance < 3) {
+        const maxCoffeeGainCore = Math.min(this.iceCoreMax, this.coffeeInstanceStartIceCore + 3);
+        const beforeCore = this.iceCore;
+        this.iceCore = Math.min(maxCoffeeGainCore, this.iceCore + 1);
 
-      if (coffeeBurstsThisChain <= 3) {
-        this.iceCore = Math.min(this.iceCoreMax, this.iceCore + 1);
-        this.setMessage(`Coffee burst: Ice Core +1 (${coffeeBurstsThisChain}/3 this instance).`, "#ddc0aa");
+        if (this.iceCore > beforeCore) {
+          this.coffeeCoreGainsThisInstance += 1;
+          this.setMessage(`Coffee burst: Ice Core +1 (${this.coffeeCoreGainsThisInstance}/3 this instance).`, "#ddc0aa");
+        } else {
+          this.coffeeCoreGainsThisInstance = 3;
+          this.setMessage("Coffee burst: bonus cap reached for this instance.", "#ddc0aa");
+        }
       } else {
         this.setMessage("Coffee burst: bonus cap reached for this instance.", "#ddc0aa");
       }
@@ -2300,6 +2702,11 @@ export class OverheatPuzzleScene extends Phaser.Scene {
 
       const tile = this.board[y][x];
       if (!tile) {
+        return;
+      }
+
+      if (tile.type === "ice") {
+        this.iceCore = Math.min(this.iceCoreMax, this.iceCore + 1);
         return;
       }
 
