@@ -286,6 +286,43 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     if (this.gameplayBgm && this.gameplayBgm.isPlaying) {
       this.gameplayBgm.stop();
     }
+    if (this.eventMusicBgm && this.eventMusicBgm.isPlaying) {
+      this.eventMusicBgm.stop();
+    }
+  }
+
+  playEventMusic() {
+    if (this.registry.get("muteBgm")) return;
+    
+    if (this.gameplayBgm && this.gameplayBgm.isPlaying) {
+      this.gameplayBgm.stop();
+    }
+    
+    if (!this.eventMusicBgm && this.cache.audio.exists("eventMusic")) {
+      this.eventMusicBgm = this.sound.add("eventMusic", { loop: true, volume: 0.42 });
+    }
+    
+    if (this.eventMusicBgm) {
+      this.eventMusicBgm.setLoop(true);
+      this.eventMusicBgm.setVolume(0.42);
+      this.eventMusicBgm.setMute(false);
+      if (!this.eventMusicBgm.isPlaying) {
+        this.eventMusicBgm.play();
+      }
+    }
+  }
+
+  stopEventMusic() {
+    if (this.eventMusicBgm && this.eventMusicBgm.isPlaying) {
+      this.eventMusicBgm.stop();
+    }
+    
+    if (this.gameplayBgm && !this.registry.get("muteBgm")) {
+      this.gameplayBgm.setMute(false);
+      if (!this.gameplayBgm.isPlaying) {
+        this.gameplayBgm.play();
+      }
+    }
   }
 
   playSfx(key, config = {}) {
@@ -674,7 +711,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     const sprite = this.tileSprites[idx];
     const rect = this.cellRects[idx];
 
-    if (spriteBase && sprite && rect && !this.tweens.isTweening([spriteBase, sprite])) {
+    if (spriteBase && sprite && rect && !this.tweens.isTweening(spriteBase) && !this.tweens.isTweening(sprite)) {
       const center = this.getCellCenter(icePos.x, icePos.y);
       rect.setStrokeStyle(3, 0xff6666, 1);
 
@@ -1571,6 +1608,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
   }
 
   playHeatFadesCutIn(done) {
+    this.stopEventMusic();
     const { width, height } = this.scale;
     const minCutInDuration = 2000;
     const exitDuration = 220;
@@ -1821,6 +1859,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
   }
 
   playHeatIntensifiesCutIn(done) {
+    this.playEventMusic();
     if (!this.registry.get("muteSfx") && this.sys && this.sys.isActive() && this.sound) {
       this.sound.play("eventSfx", { volume: 0.9 });
     }
@@ -2074,6 +2113,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
   }
 
   playColdSnapFadesCutIn(done) {
+    this.stopEventMusic();
     const { width, height } = this.scale;
     const minCutInDuration = 2000;
     const exitDuration = 220;
@@ -2228,6 +2268,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
   }
 
   playColdSnapCutIn(done) {
+    this.playEventMusic();
     if (!this.registry.get("muteSfx") && this.sys && this.sys.isActive() && this.sound) {
       this.sound.play("eventSfx", { volume: 0.9 });
     }
