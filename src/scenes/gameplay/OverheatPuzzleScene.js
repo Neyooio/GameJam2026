@@ -741,12 +741,6 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       this.spawnLowCoreMeltParticles(icePos.x, icePos.y, intensity);
       this.lowCoreFx.lastMeltParticleAt = now;
     }
-
-    const rightInterval = Phaser.Math.Linear(300, 70, intensity);
-    if (now - this.lowCoreFx.lastRightParticleAt >= rightInterval) {
-      this.spawnLowCoreRightSideParticles(intensity);
-      this.lowCoreFx.lastRightParticleAt = now;
-    }
   }
 
   spawnLowCoreMeltParticles(x, y, intensity) {
@@ -758,7 +752,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       const color = isSteam ? 0xbfd6e8 : 0x79ddff;
       const particle = this.add
         .circle(center.x + Phaser.Math.Between(-20, 20), center.y + Phaser.Math.Between(8, 20), isSteam ? 2 : 3, color, isSteam ? 0.55 : 0.8)
-        .setDepth(-10);
+        .setDepth(240);
 
       this.tweens.add({
         targets: particle,
@@ -776,37 +770,6 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     }
   }
 
-  spawnLowCoreRightSideParticles(intensity) {
-    const rightAreas = [
-      { minX: 890, maxX: 944, minY: 360, maxY: 430 },
-      { minX: 890, maxX: 944, minY: 470, maxY: 545 },
-    ];
-
-    const area = Phaser.Utils.Array.GetRandom(rightAreas);
-    const count = intensity > 0.7 ? 7 : 4;
-
-    for (let i = 0; i < count; i += 1) {
-      const px = Phaser.Math.Between(area.minX, area.maxX);
-      const py = Phaser.Math.Between(area.minY, area.maxY);
-      const warm = Math.random() > 0.5;
-      const p = this.add
-        .rectangle(px, py, Phaser.Math.Between(2, 4), Phaser.Math.Between(2, 5), warm ? 0xffa860 : 0x9be7ff, 0.85)
-        .setDepth(-10);
-
-      this.tweens.add({
-        targets: p,
-        x: px + Phaser.Math.Between(-34, 34),
-        y: py + Phaser.Math.Between(-22, 26),
-        alpha: 0,
-        angle: Phaser.Math.Between(-70, 70),
-        duration: Phaser.Math.Between(260, 520),
-        ease: "Cubic.easeOut",
-        onComplete: () => {
-          p.destroy();
-        },
-      });
-    }
-  }
 
   createBoardViews() {
     this.cellRects = [];
