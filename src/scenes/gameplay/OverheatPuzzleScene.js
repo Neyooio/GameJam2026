@@ -16,13 +16,13 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     this.isResolving = false;
     this.tutorialMode = false;
     this.heatPhaseMoveThreshold = 50;
-    this.heatPhaseDurationMoves = 6;
+    this.heatPhaseDurationMoves = 7;
     this.heatPhaseActive = false;
     this.heatPhaseTriggered = false;
     this.heatPhaseMovesRemaining = 0;
 
     this.coldSnapPhaseMoveThreshold = 50;
-    this.coldSnapPhaseDurationMoves = 6;
+    this.coldSnapPhaseDurationMoves = 7;
     this.coldSnapPhaseActive = false;
     this.coldSnapPhaseTriggered = false;
     this.coldSnapPhaseMovesRemaining = 0;
@@ -1652,31 +1652,31 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       beginExit();
     });
 
-    if (!this.registry.get("muteSfx") && this.sys && this.sys.isActive() && this.sound && this.cache.audio.exists("freshenUpSfx")) {
-      if (!this.freshenUpSfx) {
-        this.freshenUpSfx = this.sound.add("freshenUpSfx", { volume: 0.9 });
+    if (!this.registry.get("muteSfx") && this.sys && this.sys.isActive() && this.sound && this.cache.audio.exists("endEventSfx")) {
+      if (!this.endEventSfx) {
+        this.endEventSfx = this.sound.add("endEventSfx", { volume: 0.9 });
       }
 
-      if (this.freshenUpSfx.isPlaying) {
-        this.freshenUpSfx.stop();
+      if (this.endEventSfx.isPlaying) {
+        this.endEventSfx.stop();
       }
 
-      this.freshenUpSfx.setVolume(0.9);
-      this.freshenUpSfx.play({ volume: 0.9 });
+      this.endEventSfx.setVolume(0.9);
+      this.endEventSfx.play({ volume: 0.9 });
 
-      if (this.freshenUpSfx.isPlaying) {
+      if (this.endEventSfx.isPlaying) {
         const onSfxComplete = () => {
           markSfxReady();
         };
 
-        this.freshenUpSfx.once("complete", onSfxComplete);
+        this.endEventSfx.once("complete", onSfxComplete);
         detachSfxCompleteListener = () => {
-          if (!this.freshenUpSfx) {
+          if (!this.endEventSfx) {
             detachSfxCompleteListener = null;
             return;
           }
 
-          this.freshenUpSfx.off("complete", onSfxComplete);
+          this.endEventSfx.off("complete", onSfxComplete);
           detachSfxCompleteListener = null;
         };
       } else {
@@ -1806,6 +1806,9 @@ export class OverheatPuzzleScene extends Phaser.Scene {
   }
 
   playHeatIntensifiesCutIn(done) {
+    if (!this.registry.get("muteSfx") && this.sys && this.sys.isActive() && this.sound) {
+      this.sound.play("eventSfx", { volume: 0.9 });
+    }
     const { width, height } = this.scale;
     const minCutInDuration = 3000;
     const exitDuration = 220;
@@ -2140,18 +2143,18 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       beginExit();
     });
 
-    if (!this.registry.get("muteSfx") && this.sys && this.sys.isActive() && this.sound && this.cache.audio.exists("freshenUpSfx")) {
-      if (!this.freshenUpSfx) this.freshenUpSfx = this.sound.add("freshenUpSfx", { volume: 0.9 });
-      if (this.freshenUpSfx.isPlaying) this.freshenUpSfx.stop();
-      this.freshenUpSfx.setVolume(0.9);
-      this.freshenUpSfx.play({ volume: 0.9 });
+    if (!this.registry.get("muteSfx") && this.sys && this.sys.isActive() && this.sound && this.cache.audio.exists("endEventSfx")) {
+      if (!this.endEventSfx) this.endEventSfx = this.sound.add("endEventSfx", { volume: 0.9 });
+      if (this.endEventSfx.isPlaying) this.endEventSfx.stop();
+      this.endEventSfx.setVolume(0.9);
+      this.endEventSfx.play({ volume: 0.9 });
 
-      if (this.freshenUpSfx.isPlaying) {
+      if (this.endEventSfx.isPlaying) {
         const onSfxComplete = () => markSfxReady();
-        this.freshenUpSfx.once("complete", onSfxComplete);
+        this.endEventSfx.once("complete", onSfxComplete);
         detachSfxCompleteListener = () => {
-          if (!this.freshenUpSfx) { detachSfxCompleteListener = null; return; }
-          this.freshenUpSfx.off("complete", onSfxComplete);
+          if (!this.endEventSfx) { detachSfxCompleteListener = null; return; }
+          this.endEventSfx.off("complete", onSfxComplete);
           detachSfxCompleteListener = null;
         };
       } else {
@@ -2210,6 +2213,9 @@ export class OverheatPuzzleScene extends Phaser.Scene {
   }
 
   playColdSnapCutIn(done) {
+    if (!this.registry.get("muteSfx") && this.sys && this.sys.isActive() && this.sound) {
+      this.sound.play("eventSfx", { volume: 0.9 });
+    }
     const { width, height } = this.scale;
     const minCutInDuration = 3000;
     const exitDuration = 220;
