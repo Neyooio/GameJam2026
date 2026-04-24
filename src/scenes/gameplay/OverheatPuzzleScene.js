@@ -293,15 +293,15 @@ export class OverheatPuzzleScene extends Phaser.Scene {
 
   playEventMusic() {
     if (this.registry.get("muteBgm")) return;
-    
+
     if (this.gameplayBgm && this.gameplayBgm.isPlaying) {
       this.gameplayBgm.stop();
     }
-    
+
     if (!this.eventMusicBgm && this.cache.audio.exists("eventMusic")) {
       this.eventMusicBgm = this.sound.add("eventMusic", { loop: true, volume: 0.42 });
     }
-    
+
     if (this.eventMusicBgm) {
       this.eventMusicBgm.setLoop(true);
       this.eventMusicBgm.setVolume(0.42);
@@ -316,7 +316,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     if (this.eventMusicBgm && this.eventMusicBgm.isPlaying) {
       this.eventMusicBgm.stop();
     }
-    
+
     if (this.gameplayBgm && !this.registry.get("muteBgm")) {
       this.gameplayBgm.setMute(false);
       if (!this.gameplayBgm.isPlaying) {
@@ -550,29 +550,6 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     const { width, height } = this.scale;
     this.add.image(width / 2, height / 2, "bgVendingMachine").setDisplaySize(width, height).setDepth(-100);
 
-    const title = this.tutorialMode ? "FREEZE MERGE - TUTORIAL" : "FREEZE MERGE";
-
-    this.add
-      .text(249, 26, title, {
-        fontFamily: "Yoster",
-        fontSize: "30px",
-        color: "#ffffff",
-      })
-      .setOrigin(0.5)
-      .setStroke("#000000", 6)
-      .setShadow(2, 2, "#000000", 0, true, false);
-
-    this.add
-      .text(249, 65, "Slide with Arrow keys or on-screen controls.\nSame drinks merge and charge slots.", {
-        fontFamily: "Yoster",
-        fontSize: "13px",
-        color: "#ffffff",
-        align: "center",
-      })
-      .setOrigin(0.5)
-      .setStroke("#000000", 4)
-      .setShadow(1, 1, "#000000", 0, true, false);
-
     this.createBoardViews();
     this.createRightPanel();
     this.createControls();
@@ -580,8 +557,6 @@ export class OverheatPuzzleScene extends Phaser.Scene {
 
     this.addWireSparks();
     this.addRedLightGlow();
-
-    this.setMessage("Merge same drinks to fill slot colors. Full slot triggers Freshen Up and bursts.");
   }
 
   addWireSparks() {
@@ -883,7 +858,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     const { width } = this.scale;
     const panelX = width * 0.73;
 
-    this.add.rectangle(panelX, 245, 245, 375, 0x152532, 1).setStrokeStyle(2, 0x355064, 1);
+    this.add.rectangle(panelX, 287, 245, 470, 0x152532, 1).setStrokeStyle(2, 0x355064, 1);
 
     // Customer Window
     this.add.image(panelX, 110, "bgCustomer").setDisplaySize(220, 95);
@@ -919,18 +894,18 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     }).setOrigin(0.5).setVisible(false).setDepth(10);
 
     this.iceCoreText = this.add
-      .text(panelX, 175, "", {
+      .text(panelX, 173, "", {
         fontFamily: "Yoster",
         fontSize: "18px",
         color: "#d7f3ff",
       })
       .setOrigin(0.5);
 
-    this.iceCoreBar = this.add.rectangle(panelX - 98, 195, 196, 14, 0x79ddff, 1).setOrigin(0, 0.5);
-    this.add.rectangle(panelX, 195, 196, 14, 0x2a3b48, 1).setOrigin(0.5).setDepth(this.iceCoreBar.depth - 1);
+    this.iceCoreBar = this.add.rectangle(panelX - 98, 190, 196, 14, 0x79ddff, 1).setOrigin(0, 0.5);
+    this.add.rectangle(panelX, 190, 196, 14, 0x2a3b48, 1).setOrigin(0.5).setDepth(this.iceCoreBar.depth - 1);
 
     this.scoreText = this.add
-      .text(panelX, 225, "", {
+      .text(panelX, 215, "", {
         fontFamily: "Yoster",
         fontSize: "15px",
         color: "#ffe59b",
@@ -938,15 +913,27 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.turnText = this.add
-      .text(panelX, 245, "", {
+      .text(panelX, 232, "", {
         fontFamily: "Yoster",
         fontSize: "15px",
         color: "#dce9f5",
       })
       .setOrigin(0.5);
 
+    const infoButton = this.add.rectangle(panelX, 255, 80, 26, 0x2a4255, 1).setStrokeStyle(2, 0x7fabca, 1);
+    const infoText = this.add.text(panelX, 255, "INFO", {
+      fontFamily: "Yoster",
+      fontSize: "12px",
+      color: "#eaf4ff",
+    }).setOrigin(0.5);
+
+    infoButton.setInteractive({ useHandCursor: true });
+    infoButton.on("pointerover", () => infoButton.setFillStyle(0x3a5d76, 1));
+    infoButton.on("pointerout", () => infoButton.setFillStyle(0x2a4255, 1));
+    infoButton.on("pointerdown", () => this.showInfoModal());
+
     this.messageText = this.add
-      .text(panelX, 265, "", {
+      .text(panelX, 275, "", {
         fontFamily: "Yoster",
         fontSize: "11px",
         color: "#9fc2dd",
@@ -956,51 +943,127 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       .setOrigin(0.5, 0);
 
     this.add
-      .text(panelX, 315, "BURST THRESHOLDS", {
+      .text(panelX, 320, "BURST THRESHOLDS", {
         fontFamily: "Yoster",
         fontSize: "12px",
         color: "#d4e6f4",
       })
       .setOrigin(0.5);
 
-    this.add
-      .text(panelX, 345, "Water 3   Juice 4   Tea 6\nCola 5   Coffee 2", {
-        fontFamily: "Yoster",
-        fontSize: "11px",
-        color: "#bcd0e2",
-        align: "center",
-      })
-      .setOrigin(0.5);
+    const addThresholdIcon = (cx, cy, type, amount) => {
+      const img = this.add.image(cx, cy, this.itemSpriteKeys[type]);
+      const source = img.texture.getSourceImage();
+      const w = source && source.width ? source.width : 50;
+      const h = source && source.height ? source.height : 50;
+      const ratio = Math.min(22 / w, 22 / h);
+      img.setScale(ratio);
 
-    this.add
-      .text(panelX, 395, "Slot fills by color as same items merge.\nWhen full, tile bursts and triggers skill.", {
+      this.add.text(cx + 12, cy, amount.toString(), {
         fontFamily: "Yoster",
-        fontSize: "10px",
-        color: "#95afc3",
-        align: "center",
-        wordWrap: { width: 220 },
-      })
-      .setOrigin(0.5);
+        fontSize: "12px",
+        color: "#bcd0e2",
+      }).setOrigin(0, 0.5);
+    };
+
+    addThresholdIcon(panelX - 95, 345, "water", 3);
+    addThresholdIcon(panelX - 50, 345, "juice", 4);
+    addThresholdIcon(panelX - 5, 345, "tea", 6);
+    addThresholdIcon(panelX + 40, 345, "cola", 5);
+    addThresholdIcon(panelX + 85, 345, "coffee", 2);
+  }
+
+  showInfoModal() {
+    if (this.infoModal) {
+      this.infoModal.setVisible(true);
+      return;
+    }
+
+    const { width, height } = this.scale;
+    const cx = width * 0.5;
+    const cy = height * 0.5;
+
+    this.infoModal = this.add.container(0, 0).setDepth(1000);
+
+    const overlay = this.add.rectangle(cx, cy, width, height, 0x000000, 0.7);
+    overlay.setInteractive();
+
+    const bg = this.add.rectangle(cx, cy, 600, 480, 0x152532, 1).setStrokeStyle(4, 0x395365, 1);
+
+    const character = this.add.image(cx - 380, cy - 240, "howtoplay").setOrigin(0.5, 0);
+    const source = character.texture.getSourceImage();
+    if (source && source.width) {
+      const ratio = Math.min(240 / source.width, 460 / source.height);
+      character.setScale(ratio);
+    } else {
+      character.setDisplaySize(240, 460);
+    }
+
+    const title = this.add.text(cx, cy - 200, "HOW TO PLAY", {
+      fontFamily: "Yoster",
+      fontSize: "24px",
+      color: "#ffffff"
+    }).setOrigin(0.5);
+
+    const content = this.add.text(cx, cy - 160,
+      "GAME MECHANICS:\n" +
+      "- Merge same drinks to charge slots. Full slots burst!\n" +
+      "- Prevent the Ice Core from melting to stay alive.\n" +
+      "- Warning: Coffee is spreading across the grid over time!\n\n" +
+      "EVENTS:\n" +
+      "- Heat Intensifies: Core drains faster, coffee spreads.\n" +
+      "- Cold Snap: Moves cost nothing, but some tiles freeze.\n\n" +
+      "SPRITE POWERS:\n" +
+      "- Water (3): Gives +1 charge to all coffee on the grid.\n" +
+      "- Juice (4): Charges adjacent slots.\n" +
+      "- Tea (6): Converts all tea on board to another drink.\n" +
+      "- Cola (5): Explodes surrounding slots.\n" +
+      "- Coffee (2): Grants Ice Core +1.",
+      {
+        fontFamily: "Yoster",
+        fontSize: "14px",
+        color: "#d4e8f7",
+        align: "left",
+        lineSpacing: 6,
+        wordWrap: { width: 540 }
+      }
+    ).setOrigin(0.5, 0);
+
+    const closeBtn = this.add.rectangle(cx, cy + 190, 120, 34, 0x2a4255, 1).setStrokeStyle(2, 0x7fabca, 1);
+    const closeText = this.add.text(cx, cy + 190, "CLOSE", {
+      fontFamily: "Yoster",
+      fontSize: "14px",
+      color: "#eaf4ff"
+    }).setOrigin(0.5);
+
+    closeBtn.setInteractive({ useHandCursor: true });
+    closeBtn.on("pointerover", () => closeBtn.setFillStyle(0x3a5d76, 1));
+    closeBtn.on("pointerout", () => closeBtn.setFillStyle(0x2a4255, 1));
+    closeBtn.on("pointerdown", () => {
+      this.infoModal.setVisible(false);
+    });
+
+    this.infoModal.add([overlay, bg, character, title, content, closeBtn, closeText]);
   }
 
   createControls() {
-    const { width, height } = this.scale;
+    const { width } = this.scale;
+    const panelX = width * 0.73;
 
-    const leftX = width * 0.63;
-    const rightX = width * 0.73;
-    const midX = width * 0.68;
+    const dpadMidX = panelX;
+    const dpadLeftX = panelX - 60;
+    const dpadRightX = panelX + 60;
 
-    const topY = height * 0.80;
-    const midY = height * 0.87;
-    const botY = height * 0.94;
+    const dpadTopY = 390;
+    const dpadMidY = 428;
+    const dpadBotY = 466;
 
-    this.createButton(midX, topY, "UP", () => this.handleMove("up"), 78, 30);
-    this.createButton(leftX, midY, "LEFT", () => this.handleMove("left"), 78, 30);
-    this.createButton(rightX, midY, "RIGHT", () => this.handleMove("right"), 78, 30);
-    this.createButton(midX, botY, "DOWN", () => this.handleMove("down"), 78, 30);
+    this.createButton(dpadMidX, dpadTopY, "UP", () => this.handleMove("up"), 60, 30);
+    this.createButton(dpadLeftX, dpadMidY, "LEFT", () => this.handleMove("left"), 60, 30);
+    this.createButton(dpadRightX, dpadMidY, "RIGHT", () => this.handleMove("right"), 60, 30);
+    this.createButton(dpadMidX, dpadBotY, "DOWN", () => this.handleMove("down"), 60, 30);
 
-    this.createButton(width * 0.86, midY, "RESTART", () => this.scene.restart(), 132, 30);
-    this.createButton(width * 0.86, botY, "BACK", () => this.scene.start("MainMenuScene"), 132, 30);
+    this.createButton(panelX - 65, 505, "RESTART", () => this.scene.restart(), 110, 30);
+    this.createButton(panelX + 65, 505, "BACK", () => this.scene.start("MainMenuScene"), 110, 30);
   }
 
   createButton(x, y, label, onClick, width = 120, height = 34) {
@@ -1306,7 +1369,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
                 !this.heatPhaseTriggered && !this.coldSnapPhaseTriggered &&
                 !this.heatPhaseEndedTriggered && !this.coldSnapPhaseEndedTriggered;
 
-              if (canShuffle && Math.random() < 0.2) {
+              if (canShuffle && Math.random() < 0.1) {
                 this.playBoardShuffleAnimation(() => {
                   this.isResolving = false;
                 });
@@ -2404,7 +2467,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
 
     Phaser.Utils.Array.Shuffle(validTiles);
     this.playSfx("slideSfx", { volume: 0.5 });
-    
+
     const targets = [];
     validCoords.forEach((coord) => {
       const idx = coord.y * this.gridSize + coord.x;
@@ -2445,7 +2508,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
         }
 
         this.refreshAll();
-        
+
         const newTargets = [];
         validCoords.forEach((coord) => {
           const idx = coord.y * this.gridSize + coord.x;
