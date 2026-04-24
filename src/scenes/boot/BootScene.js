@@ -12,6 +12,7 @@ export class BootScene extends Phaser.Scene {
     this.load.image("propCola", "public/assets/images/props/cola.png");
     this.load.image("propCoffee", "public/assets/images/props/coffee.png");
     this.load.image("propIce", "public/assets/images/props/icecube.png");
+    this.load.image("propIceBlock", "public/assets/images/props/icleblock.svg");
     this.load.image("propTea", "public/assets/images/props/tea.png");
     this.load.image("propJuice", "public/assets/images/props/juice.png");
     this.load.image("student2", "public/assets/images/props/student2.png");

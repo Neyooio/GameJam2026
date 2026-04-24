@@ -21,6 +21,12 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     this.heatPhaseTriggered = false;
     this.heatPhaseMovesRemaining = 0;
 
+    this.coldSnapPhaseMoveThreshold = 50;
+    this.coldSnapPhaseDurationMoves = 6;
+    this.coldSnapPhaseActive = false;
+    this.coldSnapPhaseTriggered = false;
+    this.coldSnapPhaseMovesRemaining = 0;
+
     this.iceCoreMax = 20;
     this.iceCore = 16;
 
@@ -95,6 +101,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     this.gameplayBgm = null;
     this.freshenUpSfx = null;
     this.heatIntensifiesSfx = null;
+    this.coldSnapSfx = null;
     this.activeHeatCutInState = null;
     this.comboSfxByKey = {};
     this.activeComboSfx = null;
@@ -225,6 +232,12 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     this.heatPhaseActive = false;
     this.heatPhaseTriggered = false;
     this.heatPhaseMovesRemaining = 0;
+    this.heatPhaseEndedTriggered = false;
+
+    this.coldSnapPhaseActive = false;
+    this.coldSnapPhaseTriggered = false;
+    this.coldSnapPhaseMovesRemaining = 0;
+    this.coldSnapPhaseEndedTriggered = false;
 
     this.coffeePassiveInterval = 3;
     this.resetTurnComboState();
@@ -535,31 +548,33 @@ export class OverheatPuzzleScene extends Phaser.Scene {
   }
 
   addWireSparks() {
-    // The wires are located on the far right edge of the vending machine.
-    // Approximate bounding boxes for the top and bottom wire sets based on the background art:
+    // The wires are located on the edges of the vending machine.
     const wireAreas = [
-      { minX: 890, maxX: 930, minY: 280, maxY: 330 },
-      { minX: 890, maxX: 930, minY: 440, maxY: 490 }
+      { minX: 890, maxX: 930, minY: 100, maxY: 160 }, // Top right
+      { minX: 890, maxX: 930, minY: 280, maxY: 330 }, // Mid right
+      { minX: 890, maxX: 930, minY: 440, maxY: 490 }, // Bottom right
+      { minX: 30, maxX: 70, minY: 120, maxY: 400 }    // Left side (occasional)
     ];
 
     const spawnSparkBurst = () => {
       // Safety check in case scene was destroyed
       if (!this.sys || !this.sys.game || !this.add || !this.time) return;
 
+      const isOverheated = this.heatPhaseActive;
       const area = Phaser.Utils.Array.GetRandom(wireAreas);
       const x = Phaser.Math.Between(area.minX, area.maxX);
       const y = Phaser.Math.Between(area.minY, area.maxY);
 
-      const sparkCount = Phaser.Math.Between(8, 15);
+      const sparkCount = isOverheated ? Phaser.Math.Between(20, 35) : Phaser.Math.Between(8, 15);
       for (let i = 0; i < sparkCount; i++) {
-        const sparkSize = Phaser.Math.Between(1, 3);
-        const color = Math.random() > 0.4 ? 0xffffff : 0x79ddff;
-        const spark = this.add.rectangle(x, y, sparkSize, sparkSize, color).setDepth(20);
+        const sparkSize = isOverheated ? Phaser.Math.Between(2, 4) : Phaser.Math.Between(1, 3);
+        const color = Math.random() > 0.4 ? (isOverheated ? 0xffaa00 : 0xffffff) : 0x79ddff;
+        const spark = this.add.rectangle(x, y, sparkSize, sparkSize, color).setDepth(-10);
 
         const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-        const speed = Phaser.Math.FloatBetween(20, 60);
-        const targetX = x + Math.cos(angle) * speed;
-        const targetY = y + Math.sin(angle) * speed + 40; // gravity effect
+        const baseSpeed = isOverheated ? Phaser.Math.FloatBetween(40, 120) : Phaser.Math.FloatBetween(20, 60);
+        const targetX = x + Math.cos(angle) * baseSpeed;
+        const targetY = y + Math.sin(angle) * baseSpeed + (isOverheated ? 60 : 40); // gravity effect
 
         this.tweens.add({
           targets: spark,
@@ -567,7 +582,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
           y: targetY,
           alpha: 0,
           rotation: Phaser.Math.FloatBetween(-Math.PI * 2, Math.PI * 2),
-          duration: Phaser.Math.Between(300, 700),
+          duration: isOverheated ? Phaser.Math.Between(200, 500) : Phaser.Math.Between(300, 700),
           ease: "Power1",
           onComplete: () => {
             if (spark) spark.destroy();
@@ -575,8 +590,12 @@ export class OverheatPuzzleScene extends Phaser.Scene {
         });
       }
 
-      // 15 times per minute means every ~4000ms
-      this.time.delayedCall(Phaser.Math.Between(3000, 5000), spawnSparkBurst);
+      // If overheated, trigger bursts rapidly. Otherwise, standard interval.
+      const nextDelay = isOverheated
+        ? Phaser.Math.Between(300, 800)
+        : Phaser.Math.Between(3000, 5000);
+
+      this.time.delayedCall(nextDelay, spawnSparkBurst);
     };
 
     // Schedule the first burst
@@ -702,7 +721,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       const color = isSteam ? 0xbfd6e8 : 0x79ddff;
       const particle = this.add
         .circle(center.x + Phaser.Math.Between(-20, 20), center.y + Phaser.Math.Between(8, 20), isSteam ? 2 : 3, color, isSteam ? 0.55 : 0.8)
-        .setDepth(241);
+        .setDepth(-10);
 
       this.tweens.add({
         targets: particle,
@@ -735,7 +754,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       const warm = Math.random() > 0.5;
       const p = this.add
         .rectangle(px, py, Phaser.Math.Between(2, 4), Phaser.Math.Between(2, 5), warm ? 0xffa860 : 0x9be7ff, 0.85)
-        .setDepth(246);
+        .setDepth(-10);
 
       this.tweens.add({
         targets: p,
@@ -757,23 +776,51 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     this.tileSpritesStrokes = [];
     this.tileSpritesBase = [];
     this.tileSprites = [];
+    this.freezeOverlays = [];
     this.freezeTexts = [];
 
     const boardWidth = this.gridSize * this.cellSize - 8;
     const boardHeight = this.gridSize * this.cellSize - 8;
-    const boardCenterX = this.boardX + boardWidth * 0.5;
-    const boardCenterY = this.boardY + boardHeight * 0.5;
+
+    const screenWidth = this.scale.width;
+    const screenHeight = this.scale.height;
+    const screenCenterX = screenWidth * 0.5;
+    const screenCenterY = screenHeight * 0.5;
+
+    this.heatBoardGlowOuter = this.add
+      .rectangle(screenCenterX, screenCenterY, screenWidth, screenHeight, 0xff0000, 0)
+      .setStrokeStyle(40, 0xff0000, 0)
+      .setDepth(248)
+      .setVisible(false);
 
     this.heatBoardGlow = this.add
-      .rectangle(boardCenterX, boardCenterY, boardWidth + 18, boardHeight + 18, 0xff8f2f, 0)
-      .setStrokeStyle(8, 0xff8f2f, 0)
-      .setDepth(218)
+      .rectangle(screenCenterX, screenCenterY, screenWidth, screenHeight, 0xff5500, 0)
+      .setStrokeStyle(20, 0xff5500, 0)
+      .setDepth(249)
       .setVisible(false);
 
     this.heatBoardOutline = this.add
-      .rectangle(boardCenterX, boardCenterY, boardWidth + 8, boardHeight + 8, 0xffa24a, 0)
-      .setStrokeStyle(4, 0xffa24a, 0)
-      .setDepth(219)
+      .rectangle(screenCenterX, screenCenterY, screenWidth, screenHeight, 0xffaa00, 0)
+      .setStrokeStyle(8, 0xffaa00, 0)
+      .setDepth(250)
+      .setVisible(false);
+
+    this.coldBoardGlowOuter = this.add
+      .rectangle(screenCenterX, screenCenterY, screenWidth, screenHeight, 0x0066ff, 0)
+      .setStrokeStyle(40, 0x0066ff, 0)
+      .setDepth(248)
+      .setVisible(false);
+
+    this.coldBoardGlow = this.add
+      .rectangle(screenCenterX, screenCenterY, screenWidth, screenHeight, 0x00aaff, 0)
+      .setStrokeStyle(20, 0x00aaff, 0)
+      .setDepth(249)
+      .setVisible(false);
+
+    this.coldBoardOutline = this.add
+      .rectangle(screenCenterX, screenCenterY, screenWidth, screenHeight, 0x00ffff, 0)
+      .setStrokeStyle(8, 0x00ffff, 0)
+      .setDepth(250)
       .setVisible(false);
 
     for (let y = 0; y < this.gridSize; y += 1) {
@@ -809,6 +856,11 @@ export class OverheatPuzzleScene extends Phaser.Scene {
           .image(px + (this.cellSize - 8) * 0.5, py + (this.cellSize - 8) * 0.5, "propWater")
           .setVisible(false);
 
+        const freezeOverlay = this.add
+          .image(px + (this.cellSize - 8) * 0.5, py + (this.cellSize - 8) * 0.5, "propIceBlock")
+          .setAlpha(0.8)
+          .setVisible(false);
+
         const freezeText = this.add
           .text(px + 8, py + 10, "", {
             fontFamily: "Yoster",
@@ -821,6 +873,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
         this.tileSpritesStrokes.push(strokes);
         this.tileSpritesBase.push(spriteBase);
         this.tileSprites.push(sprite);
+        this.freezeOverlays.push(freezeOverlay);
         this.freezeTexts.push(freezeText);
       }
     }
@@ -1071,6 +1124,14 @@ export class OverheatPuzzleScene extends Phaser.Scene {
         this.heatIntensifiesSfx = null;
       }
 
+      if (this.coldSnapSfx) {
+        if (this.coldSnapSfx.isPlaying) {
+          this.coldSnapSfx.stop();
+        }
+        this.coldSnapSfx.destroy();
+        this.coldSnapSfx = null;
+      }
+
       Object.values(this.comboSfxByKey).forEach((sfx) => {
         if (sfx) {
           sfx.destroy();
@@ -1196,7 +1257,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     this.turnCount += 1;
     this.resetTurnComboState();
 
-    this.checkHeatPhaseProgression();
+    this.checkSpecialPhaseProgression();
 
     this.playSfx("slideSfx", { volume: 0.22 });
     if (result.merges.length > 0) {
@@ -1230,24 +1291,57 @@ export class OverheatPuzzleScene extends Phaser.Scene {
           this.tickFreezeTurns();
           this.updateCustomer();
           this.advanceHeatPhaseTurn();
+          this.advanceColdSnapPhaseTurn();
           this.normalizeIceState();
-          this.checkLoseCondition(() => {
-            this.refreshAll();
-            this.isResolving = false;
-          });
+
+          const finishTurn = () => {
+            this.checkLoseCondition(() => {
+              this.refreshAll();
+              this.isResolving = false;
+            });
+          };
+
+          const checkColdEnded = () => {
+            if (this.coldSnapPhaseEndedTriggered) {
+              this.coldSnapPhaseEndedTriggered = false;
+              this.playColdSnapFadesCutIn(finishTurn);
+            } else {
+              finishTurn();
+            }
+          };
+
+          if (this.heatPhaseEndedTriggered) {
+            this.heatPhaseEndedTriggered = false;
+            this.playHeatFadesCutIn(checkColdEnded);
+          } else {
+            checkColdEnded();
+          }
         });
+      };
+
+      const checkColdTrigger = () => {
+        if (this.coldSnapPhaseTriggered) {
+          this.coldSnapPhaseTriggered = false;
+          this.playColdSnapCutIn(continueTurnResolution);
+        } else {
+          continueTurnResolution();
+        }
       };
 
       if (this.heatPhaseTriggered) {
         this.heatPhaseTriggered = false;
-        this.playHeatIntensifiesCutIn(continueTurnResolution);
+        this.playHeatIntensifiesCutIn(checkColdTrigger);
       } else {
-        continueTurnResolution();
+        checkColdTrigger();
       }
     });
   }
 
   applyMoveDecay(hadMerge = false) {
+    if (this.coldSnapPhaseActive) {
+      return;
+    }
+
     if (this.heatPhaseActive) {
       this.iceCore = Math.max(0, this.iceCore - 2);
       return;
@@ -1260,17 +1354,32 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     this.iceCore = Math.max(0, this.iceCore - 1);
   }
 
-  checkHeatPhaseProgression() {
-    if (this.heatPhaseActive || this.turnCount < this.heatPhaseMoveThreshold) {
+  checkSpecialPhaseProgression() {
+    if (this.heatPhaseActive || this.coldSnapPhaseActive || this.turnCount === 0 || this.turnCount % this.heatPhaseMoveThreshold !== 0) {
       return;
     }
 
-    this.heatPhaseActive = true;
-    this.heatPhaseTriggered = true;
-    this.heatPhaseMovesRemaining = this.heatPhaseDurationMoves;
-    this.coffeePassiveInterval = 4;
-    this.setMessage("Heat Intensifies! Ice Core drains -2 each slide. Coffee spreads every 4 slides.", "#ffbb88");
-    this.activateHeatBoardOutline();
+    const event = Phaser.Math.RND.pick(["heat", "cold"]);
+
+    if (event === "heat") {
+      this.heatPhaseActive = true;
+      this.heatPhaseTriggered = true;
+      this.heatPhaseMovesRemaining = this.heatPhaseDurationMoves;
+      this.coffeePassiveInterval = 4;
+      this.setMessage("Heat Intensifies! Ice Core drains -2 each slide. Coffee spreads every 4 slides.", "#ffbb88");
+      this.activateHeatBoardOutline();
+    } else {
+      this.coldSnapPhaseActive = true;
+      this.coldSnapPhaseTriggered = true;
+      this.coldSnapPhaseMovesRemaining = this.coldSnapPhaseDurationMoves;
+      this.setMessage("Cold Snap! No moving cost, but some tiles freeze.", "#aaeaff");
+      this.activateColdBoardOutline();
+
+      const freezeCount = Phaser.Math.Between(3, 4);
+      for (let i = 0; i < freezeCount; i++) {
+        this.applyIceFreezeGuard(true);
+      }
+    }
   }
 
   advanceHeatPhaseTurn() {
@@ -1284,9 +1393,26 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     }
 
     this.heatPhaseActive = false;
+    this.heatPhaseEndedTriggered = true;
     this.coffeePassiveInterval = 3;
     this.deactivateHeatBoardOutline();
     this.setMessage("Heat surge fades. Ice Core drain and coffee spread return to normal.", "#ffd5aa");
+  }
+
+  advanceColdSnapPhaseTurn() {
+    if (!this.coldSnapPhaseActive) {
+      return;
+    }
+
+    this.coldSnapPhaseMovesRemaining = Math.max(0, this.coldSnapPhaseMovesRemaining - 1);
+    if (this.coldSnapPhaseMovesRemaining > 0) {
+      return;
+    }
+
+    this.coldSnapPhaseActive = false;
+    this.coldSnapPhaseEndedTriggered = true;
+    this.deactivateColdBoardOutline();
+    this.setMessage("Cold Snap fades. Normal movement costs return.", "#cceeff");
   }
 
   activateHeatBoardOutline() {
@@ -1294,16 +1420,31 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       return;
     }
 
+    this.tweens.killTweensOf(this.heatBoardGlowOuter);
     this.tweens.killTweensOf(this.heatBoardGlow);
     this.tweens.killTweensOf(this.heatBoardOutline);
 
-    this.heatBoardGlow.setVisible(true).setAlpha(0.35).setStrokeStyle(8, 0xff8f2f, 0.35);
-    this.heatBoardOutline.setVisible(true).setAlpha(1).setStrokeStyle(4, 0xffa24a, 1);
+    if (this.heatBoardGlowOuter) {
+      this.heatBoardGlowOuter.setVisible(true).setAlpha(0.1).setStrokeStyle(40, 0xff0000, 1);
+    }
+    this.heatBoardGlow.setVisible(true).setAlpha(0.3).setStrokeStyle(20, 0xff5500, 1);
+    this.heatBoardOutline.setVisible(true).setAlpha(0.6).setStrokeStyle(8, 0xffaa00, 1);
+
+    if (this.heatBoardGlowOuter) {
+      this.tweens.add({
+        targets: this.heatBoardGlowOuter,
+        alpha: 0.4,
+        duration: 400,
+        yoyo: true,
+        repeat: -1,
+        ease: "Sine.easeInOut",
+      });
+    }
 
     this.tweens.add({
       targets: this.heatBoardGlow,
-      alpha: { from: 0.18, to: 0.48 },
-      duration: 760,
+      alpha: 0.8,
+      duration: 400,
       yoyo: true,
       repeat: -1,
       ease: "Sine.easeInOut",
@@ -1311,8 +1452,8 @@ export class OverheatPuzzleScene extends Phaser.Scene {
 
     this.tweens.add({
       targets: this.heatBoardOutline,
-      alpha: { from: 0.78, to: 1 },
-      duration: 560,
+      alpha: 1,
+      duration: 400,
       yoyo: true,
       repeat: -1,
       ease: "Sine.easeInOut",
@@ -1324,17 +1465,342 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       return;
     }
 
+    this.tweens.killTweensOf(this.heatBoardGlowOuter);
     this.tweens.killTweensOf(this.heatBoardGlow);
     this.tweens.killTweensOf(this.heatBoardOutline);
 
+    const targets = [this.heatBoardGlow, this.heatBoardOutline];
+    if (this.heatBoardGlowOuter) targets.push(this.heatBoardGlowOuter);
+
     this.tweens.add({
-      targets: [this.heatBoardGlow, this.heatBoardOutline],
+      targets,
       alpha: 0,
       duration: 260,
       ease: "Quad.easeOut",
       onComplete: () => {
+        if (this.heatBoardGlowOuter) this.heatBoardGlowOuter.setVisible(false).setAlpha(0);
         this.heatBoardGlow.setVisible(false).setAlpha(0);
         this.heatBoardOutline.setVisible(false).setAlpha(0);
+      },
+    });
+  }
+
+  activateColdBoardOutline() {
+    if (!this.coldBoardOutline || !this.coldBoardGlow) {
+      return;
+    }
+
+    this.tweens.killTweensOf(this.coldBoardGlowOuter);
+    this.tweens.killTweensOf(this.coldBoardGlow);
+    this.tweens.killTweensOf(this.coldBoardOutline);
+
+    if (this.coldBoardGlowOuter) {
+      this.coldBoardGlowOuter.setVisible(true).setAlpha(0.1).setStrokeStyle(40, 0x0066ff, 1);
+    }
+    this.coldBoardGlow.setVisible(true).setAlpha(0.3).setStrokeStyle(20, 0x00aaff, 1);
+    this.coldBoardOutline.setVisible(true).setAlpha(0.6).setStrokeStyle(8, 0x00ffff, 1);
+
+    if (this.coldBoardGlowOuter) {
+      this.tweens.add({
+        targets: this.coldBoardGlowOuter,
+        alpha: 0.4,
+        duration: 400,
+        yoyo: true,
+        repeat: -1,
+        ease: "Sine.easeInOut",
+      });
+    }
+
+    this.tweens.add({
+      targets: this.coldBoardGlow,
+      alpha: 0.8,
+      duration: 400,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
+
+    this.tweens.add({
+      targets: this.coldBoardOutline,
+      alpha: 1,
+      duration: 400,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
+  }
+
+  deactivateColdBoardOutline() {
+    if (!this.coldBoardOutline || !this.coldBoardGlow) {
+      return;
+    }
+
+    this.tweens.killTweensOf(this.coldBoardGlowOuter);
+    this.tweens.killTweensOf(this.coldBoardGlow);
+    this.tweens.killTweensOf(this.coldBoardOutline);
+
+    const targets = [this.coldBoardGlow, this.coldBoardOutline];
+    if (this.coldBoardGlowOuter) targets.push(this.coldBoardGlowOuter);
+
+    this.tweens.add({
+      targets,
+      alpha: 0,
+      duration: 260,
+      ease: "Quad.easeOut",
+      onComplete: () => {
+        if (this.coldBoardGlowOuter) this.coldBoardGlowOuter.setVisible(false).setAlpha(0);
+        this.coldBoardGlow.setVisible(false).setAlpha(0);
+        this.coldBoardOutline.setVisible(false).setAlpha(0);
+      },
+    });
+  }
+
+  playHeatFadesCutIn(done) {
+    const { width, height } = this.scale;
+    const minCutInDuration = 2000;
+    const exitDuration = 220;
+    let hasExited = false;
+    let canExitForTime = false;
+    let canExitForSfx = false;
+    let minDurationTimer = null;
+    let detachSfxCompleteListener = null;
+
+    if (this.activeHeatCutInState && this.activeHeatCutInState.cleanup) {
+      this.activeHeatCutInState.cleanup();
+      this.activeHeatCutInState = null;
+    }
+
+    const beginExit = () => {
+      if (hasExited || !canExitForTime || !canExitForSfx) {
+        return;
+      }
+
+      hasExited = true;
+      if (detachSfxCompleteListener) {
+        detachSfxCompleteListener();
+      }
+      if (this.activeHeatCutInState) {
+        this.activeHeatCutInState = null;
+      }
+
+      this.tweens.add({
+        targets: [
+          this.cutIn.stripe,
+          this.cutIn.stripeAccent,
+          this.cutIn.stripeAccentTop,
+          this.cutIn.title,
+          this.cutIn.subtitle,
+          this.cutIn.sprite,
+          this.cutIn.spriteShadow,
+        ],
+        y: "-=800",
+        alpha: 0,
+        duration: exitDuration + 100,
+        ease: "Cubic.easeIn",
+      });
+
+      this.tweens.add({
+        targets: this.cutIn.overlay,
+        alpha: 0,
+        duration: exitDuration + 100,
+        delay: 40,
+        onComplete: () => {
+          this.cutIn.overlay.setVisible(false);
+          this.cutIn.stripe.setVisible(false).setAngle(-2);
+          this.cutIn.stripeAccent.setVisible(false).setAngle(-2);
+          this.cutIn.stripeAccentTop.setVisible(false).setAngle(-2);
+          this.cutIn.title.setVisible(false).setAlpha(1).setScale(1).setColor("#ffffff");
+          this.cutIn.subtitle.setVisible(false).setAlpha(1).setScale(1).setColor("#d4e8f7");
+          this.cutIn.sprite.setVisible(false).setAlpha(1).setAngle(0).clearTint();
+          this.cutIn.spriteShadow.setVisible(false).setAlpha(0).setAngle(0).clearTint();
+
+          this.cutIn.particles.forEach((p) => p.destroy());
+          this.cutIn.particles = [];
+
+          if (done) {
+            done();
+          }
+        },
+      });
+    };
+
+    const markSfxReady = () => {
+      canExitForSfx = true;
+      beginExit();
+    };
+
+    const cleanupCutInState = () => {
+      if (minDurationTimer) {
+        minDurationTimer.remove(false);
+        minDurationTimer = null;
+      }
+
+      if (detachSfxCompleteListener) {
+        detachSfxCompleteListener();
+      }
+
+      hasExited = true;
+    };
+
+    this.activeHeatCutInState = {
+      cleanup: cleanupCutInState,
+    };
+
+    minDurationTimer = this.time.delayedCall(minCutInDuration, () => {
+      minDurationTimer = null;
+      canExitForTime = true;
+      beginExit();
+    });
+
+    if (!this.registry.get("muteSfx") && this.sys && this.sys.isActive() && this.sound && this.cache.audio.exists("freshenUpSfx")) {
+      if (!this.freshenUpSfx) {
+        this.freshenUpSfx = this.sound.add("freshenUpSfx", { volume: 0.9 });
+      }
+
+      if (this.freshenUpSfx.isPlaying) {
+        this.freshenUpSfx.stop();
+      }
+
+      this.freshenUpSfx.setVolume(0.9);
+      this.freshenUpSfx.play({ volume: 0.9 });
+
+      if (this.freshenUpSfx.isPlaying) {
+        const onSfxComplete = () => {
+          markSfxReady();
+        };
+
+        this.freshenUpSfx.once("complete", onSfxComplete);
+        detachSfxCompleteListener = () => {
+          if (!this.freshenUpSfx) {
+            detachSfxCompleteListener = null;
+            return;
+          }
+
+          this.freshenUpSfx.off("complete", onSfxComplete);
+          detachSfxCompleteListener = null;
+        };
+      } else {
+        canExitForSfx = true;
+      }
+    } else {
+      canExitForSfx = true;
+    }
+
+    this.cutIn.particles.forEach((p) => p.destroy());
+    this.cutIn.particles = [];
+
+    this.cutIn.overlay.setVisible(true).setAlpha(0);
+    this.tweens.add({
+      targets: this.cutIn.overlay,
+      alpha: 0.5,
+      duration: 130,
+    });
+
+    this.cutIn.stripe
+      .setVisible(true)
+      .setFillStyle(0x0b253a, 0.95)
+      .setPosition(width * 0.5, height + 120)
+      .setDisplaySize(width + 100, 148)
+      .setAngle(0)
+      .setAlpha(1);
+
+    this.cutIn.stripeAccent
+      .setVisible(true)
+      .setFillStyle(0x5ca3ff, 0.95)
+      .setPosition(width * 0.5, height + 188)
+      .setDisplaySize(width + 100, 5)
+      .setAngle(0)
+      .setAlpha(0.85);
+
+    this.cutIn.stripeAccentTop
+      .setVisible(true)
+      .setFillStyle(0x82bfff, 0.92)
+      .setPosition(width * 0.5, height + 52)
+      .setDisplaySize(width + 100, 5)
+      .setAngle(0)
+      .setAlpha(0.9);
+
+    this.cutIn.title
+      .setVisible(true)
+      .setText("Back to Normal!!")
+      .setColor("#b8deff")
+      .setPosition(width * 0.5, height + 98)
+      .setAlpha(1)
+      .setScale(0.9);
+
+    this.cutIn.subtitle
+      .setVisible(true)
+      .setText("HEAT PHASE ENDED")
+      .setColor("#8ac4ff")
+      .setPosition(width * 0.5, height + 130)
+      .setAlpha(0.95)
+      .setScale(1);
+
+    this.cutIn.sprite
+      .setVisible(true)
+      .setTexture("propIce")
+      .setPosition(width * 0.5 - 260, height + 120)
+      .setAlpha(0.95)
+      .setAngle(-8)
+      .setTint(0x9bd8ff);
+
+    this.cutIn.spriteShadow
+      .setVisible(true)
+      .setTexture("propIce")
+      .setPosition(width * 0.5 - 248, height + 136)
+      .setAlpha(0.34)
+      .setAngle(-8)
+      .setTint(0x000000);
+
+    const source = this.cutIn.sprite.texture.getSourceImage();
+    const spriteW = source.width || 1;
+    const spriteH = source.height || 1;
+    const spriteRatio = Math.min(118 / spriteW, 136 / spriteH);
+    this.cutIn.sprite.setScale(spriteRatio);
+
+    for (let i = 0; i < 16; i += 1) {
+      const ember = this.add
+        .circle(width * 0.5 + Phaser.Math.Between(-290, 290), height + Phaser.Math.Between(20, 180), Phaser.Math.Between(2, 4), 0x9beaff, 0.8)
+        .setDepth(252);
+      this.cutIn.particles.push(ember);
+
+      this.tweens.add({
+        targets: ember,
+        y: ember.y - Phaser.Math.Between(80, 180),
+        x: ember.x + Phaser.Math.Between(-16, 16),
+        alpha: 0,
+        scale: 0.3,
+        duration: Phaser.Math.Between(420, 760),
+        delay: Phaser.Math.Between(0, 120),
+        ease: "Cubic.easeOut",
+      });
+    }
+
+    this.cameras.main.shake(220, 0.002);
+
+    this.tweens.add({
+      targets: [
+        this.cutIn.stripe,
+        this.cutIn.stripeAccent,
+        this.cutIn.stripeAccentTop,
+        this.cutIn.title,
+        this.cutIn.subtitle,
+        this.cutIn.sprite,
+        this.cutIn.spriteShadow,
+      ],
+      y: "-=320",
+      duration: 260,
+      ease: "Back.easeOut",
+      onComplete: () => {
+        this.tweens.add({
+          targets: this.cutIn.title,
+          scaleX: 1.04,
+          scaleY: 1.04,
+          duration: 140,
+          yoyo: true,
+          repeat: 1,
+          ease: "Sine.easeInOut",
+        });
       },
     });
   }
@@ -1377,16 +1843,16 @@ export class OverheatPuzzleScene extends Phaser.Scene {
           this.cutIn.sprite,
           this.cutIn.spriteShadow,
         ],
-        y: "-=240",
+        y: "-=800",
         alpha: 0,
-        duration: exitDuration,
+        duration: exitDuration + 100,
         ease: "Cubic.easeIn",
       });
 
       this.tweens.add({
         targets: this.cutIn.overlay,
         alpha: 0,
-        duration: exitDuration,
+        duration: exitDuration + 100,
         delay: 40,
         onComplete: () => {
           this.cutIn.overlay.setVisible(false);
@@ -1484,7 +1950,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       .setVisible(true)
       .setFillStyle(0x4a1e08, 0.95)
       .setPosition(width * 0.5, height + 120)
-      .setDisplaySize(width * 0.86, 148)
+      .setDisplaySize(width + 100, 148)
       .setAngle(0)
       .setAlpha(1);
 
@@ -1492,7 +1958,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       .setVisible(true)
       .setFillStyle(0xff8f2f, 0.95)
       .setPosition(width * 0.5, height + 188)
-      .setDisplaySize(width * 0.86, 5)
+      .setDisplaySize(width + 100, 5)
       .setAngle(0)
       .setAlpha(0.85);
 
@@ -1500,7 +1966,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       .setVisible(true)
       .setFillStyle(0xffc166, 0.92)
       .setPosition(width * 0.5, height + 52)
-      .setDisplaySize(width * 0.86, 5)
+      .setDisplaySize(width + 100, 5)
       .setAngle(0)
       .setAlpha(0.9);
 
@@ -1589,6 +2055,308 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     });
   }
 
+  playColdSnapFadesCutIn(done) {
+    const { width, height } = this.scale;
+    const minCutInDuration = 2000;
+    const exitDuration = 220;
+    let hasExited = false;
+    let canExitForTime = false;
+    let canExitForSfx = false;
+    let minDurationTimer = null;
+    let detachSfxCompleteListener = null;
+
+    if (this.activeHeatCutInState && this.activeHeatCutInState.cleanup) {
+      this.activeHeatCutInState.cleanup();
+      this.activeHeatCutInState = null;
+    }
+
+    const beginExit = () => {
+      if (hasExited || !canExitForTime || !canExitForSfx) {
+        return;
+      }
+
+      hasExited = true;
+      if (detachSfxCompleteListener) detachSfxCompleteListener();
+      if (this.activeHeatCutInState) this.activeHeatCutInState = null;
+
+      this.tweens.add({
+        targets: [
+          this.cutIn.stripe,
+          this.cutIn.stripeAccent,
+          this.cutIn.stripeAccentTop,
+          this.cutIn.title,
+          this.cutIn.subtitle,
+          this.cutIn.sprite,
+          this.cutIn.spriteShadow,
+        ],
+        y: "-=800",
+        alpha: 0,
+        duration: exitDuration + 100,
+        ease: "Cubic.easeIn",
+      });
+
+      this.tweens.add({
+        targets: this.cutIn.overlay,
+        alpha: 0,
+        duration: exitDuration + 100,
+        delay: 40,
+        onComplete: () => {
+          this.cutIn.overlay.setVisible(false);
+          this.cutIn.stripe.setVisible(false).setAngle(-2);
+          this.cutIn.stripeAccent.setVisible(false).setAngle(-2);
+          this.cutIn.stripeAccentTop.setVisible(false).setAngle(-2);
+          this.cutIn.title.setVisible(false).setAlpha(1).setScale(1).setColor("#ffffff");
+          this.cutIn.subtitle.setVisible(false).setAlpha(1).setScale(1).setColor("#d4e8f7");
+          this.cutIn.sprite.setVisible(false).setAlpha(1).setAngle(0).clearTint();
+          this.cutIn.spriteShadow.setVisible(false).setAlpha(0).setAngle(0).clearTint();
+
+          this.cutIn.particles.forEach((p) => p.destroy());
+          this.cutIn.particles = [];
+
+          if (done) done();
+        },
+      });
+    };
+
+    const markSfxReady = () => {
+      canExitForSfx = true;
+      beginExit();
+    };
+
+    const cleanupCutInState = () => {
+      if (minDurationTimer) {
+        minDurationTimer.remove(false);
+        minDurationTimer = null;
+      }
+      if (detachSfxCompleteListener) detachSfxCompleteListener();
+      hasExited = true;
+    };
+
+    this.activeHeatCutInState = { cleanup: cleanupCutInState };
+
+    minDurationTimer = this.time.delayedCall(minCutInDuration, () => {
+      minDurationTimer = null;
+      canExitForTime = true;
+      beginExit();
+    });
+
+    if (!this.registry.get("muteSfx") && this.sys && this.sys.isActive() && this.sound && this.cache.audio.exists("freshenUpSfx")) {
+      if (!this.freshenUpSfx) this.freshenUpSfx = this.sound.add("freshenUpSfx", { volume: 0.9 });
+      if (this.freshenUpSfx.isPlaying) this.freshenUpSfx.stop();
+      this.freshenUpSfx.setVolume(0.9);
+      this.freshenUpSfx.play({ volume: 0.9 });
+
+      if (this.freshenUpSfx.isPlaying) {
+        const onSfxComplete = () => markSfxReady();
+        this.freshenUpSfx.once("complete", onSfxComplete);
+        detachSfxCompleteListener = () => {
+          if (!this.freshenUpSfx) { detachSfxCompleteListener = null; return; }
+          this.freshenUpSfx.off("complete", onSfxComplete);
+          detachSfxCompleteListener = null;
+        };
+      } else {
+        canExitForSfx = true;
+      }
+    } else {
+      canExitForSfx = true;
+    }
+
+    this.cutIn.particles.forEach((p) => p.destroy());
+    this.cutIn.particles = [];
+
+    this.cutIn.overlay.setVisible(true).setAlpha(0);
+    this.tweens.add({ targets: this.cutIn.overlay, alpha: 0.5, duration: 130 });
+
+    this.cutIn.stripe.setVisible(true).setFillStyle(0x0a1a2a, 0.95).setPosition(width * 0.5, height + 120).setDisplaySize(width + 100, 148).setAngle(0).setAlpha(1);
+    this.cutIn.stripeAccent.setVisible(true).setFillStyle(0x5ca3ff, 0.95).setPosition(width * 0.5, height + 188).setDisplaySize(width + 100, 5).setAngle(0).setAlpha(0.85);
+    this.cutIn.stripeAccentTop.setVisible(true).setFillStyle(0x82bfff, 0.92).setPosition(width * 0.5, height + 52).setDisplaySize(width + 100, 5).setAngle(0).setAlpha(0.9);
+
+    this.cutIn.title.setVisible(true).setText("Back to Normal!!").setColor("#b8deff").setPosition(width * 0.5, height + 98).setAlpha(1).setScale(0.9);
+    this.cutIn.subtitle.setVisible(true).setText("COLD SNAP ENDED").setColor("#8ac4ff").setPosition(width * 0.5, height + 130).setAlpha(0.95).setScale(1);
+
+    this.cutIn.sprite.setVisible(true).setTexture("propIce").setPosition(width * 0.5 - 260, height + 120).setAlpha(0.95).setAngle(-8).setTint(0x9bd8ff);
+    this.cutIn.spriteShadow.setVisible(true).setTexture("propIce").setPosition(width * 0.5 - 248, height + 136).setAlpha(0.34).setAngle(-8).setTint(0x000000);
+
+    const source = this.cutIn.sprite.texture.getSourceImage();
+    const spriteRatio = Math.min(118 / (source.width || 1), 136 / (source.height || 1));
+    this.cutIn.sprite.setScale(spriteRatio);
+
+    for (let i = 0; i < 16; i += 1) {
+      const ember = this.add.circle(width * 0.5 + Phaser.Math.Between(-290, 290), height + Phaser.Math.Between(20, 180), Phaser.Math.Between(2, 4), 0x9beaff, 0.8).setDepth(252);
+      this.cutIn.particles.push(ember);
+      this.tweens.add({
+        targets: ember,
+        y: ember.y - Phaser.Math.Between(80, 180),
+        x: ember.x + Phaser.Math.Between(-16, 16),
+        alpha: 0,
+        scale: 0.3,
+        duration: Phaser.Math.Between(420, 760),
+        delay: Phaser.Math.Between(0, 120),
+        ease: "Cubic.easeOut",
+      });
+    }
+
+    this.cameras.main.shake(220, 0.002);
+
+    this.tweens.add({
+      targets: [this.cutIn.stripe, this.cutIn.stripeAccent, this.cutIn.stripeAccentTop, this.cutIn.title, this.cutIn.subtitle, this.cutIn.sprite, this.cutIn.spriteShadow],
+      y: "-=320",
+      duration: 260,
+      ease: "Back.easeOut",
+      onComplete: () => {
+        this.tweens.add({ targets: this.cutIn.title, scaleX: 1.04, scaleY: 1.04, duration: 140, yoyo: true, repeat: 1, ease: "Sine.easeInOut" });
+      },
+    });
+  }
+
+  playColdSnapCutIn(done) {
+    const { width, height } = this.scale;
+    const minCutInDuration = 3000;
+    const exitDuration = 220;
+    let hasExited = false;
+    let canExitForTime = false;
+    let canExitForSfx = false;
+    let minDurationTimer = null;
+    let detachSfxCompleteListener = null;
+
+    if (this.activeHeatCutInState && this.activeHeatCutInState.cleanup) {
+      this.activeHeatCutInState.cleanup();
+      this.activeHeatCutInState = null;
+    }
+
+    const beginExit = () => {
+      if (hasExited || !canExitForTime || !canExitForSfx) return;
+      hasExited = true;
+      if (detachSfxCompleteListener) detachSfxCompleteListener();
+      if (this.activeHeatCutInState) this.activeHeatCutInState = null;
+
+      this.tweens.add({
+        targets: [
+          this.cutIn.stripe,
+          this.cutIn.stripeAccent,
+          this.cutIn.stripeAccentTop,
+          this.cutIn.title,
+          this.cutIn.subtitle,
+          this.cutIn.sprite,
+          this.cutIn.spriteShadow,
+        ],
+        y: "-=800",
+        alpha: 0,
+        duration: exitDuration + 100,
+        ease: "Cubic.easeIn",
+      });
+
+      this.tweens.add({
+        targets: this.cutIn.overlay,
+        alpha: 0,
+        duration: exitDuration + 100,
+        delay: 40,
+        onComplete: () => {
+          this.cutIn.overlay.setVisible(false);
+          this.cutIn.stripe.setVisible(false).setAngle(-2);
+          this.cutIn.stripeAccent.setVisible(false).setAngle(-2);
+          this.cutIn.stripeAccentTop.setVisible(false).setAngle(-2);
+          this.cutIn.title.setVisible(false).setAlpha(1).setScale(1).setColor("#ffffff");
+          this.cutIn.subtitle.setVisible(false).setAlpha(1).setScale(1).setColor("#d4e8f7");
+          this.cutIn.sprite.setVisible(false).setAlpha(1).setAngle(0).clearTint();
+          this.cutIn.spriteShadow.setVisible(false).setAlpha(0).setAngle(0).clearTint();
+
+          this.cutIn.particles.forEach((p) => p.destroy());
+          this.cutIn.particles = [];
+
+          if (done) done();
+        },
+      });
+    };
+
+    const markSfxReady = () => {
+      canExitForSfx = true;
+      beginExit();
+    };
+
+    const cleanupCutInState = () => {
+      if (minDurationTimer) { minDurationTimer.remove(false); minDurationTimer = null; }
+      if (detachSfxCompleteListener) detachSfxCompleteListener();
+      hasExited = true;
+    };
+
+    this.activeHeatCutInState = { cleanup: cleanupCutInState };
+
+    minDurationTimer = this.time.delayedCall(minCutInDuration, () => {
+      minDurationTimer = null;
+      canExitForTime = true;
+      beginExit();
+    });
+
+    if (!this.registry.get("muteSfx") && this.sys && this.sys.isActive() && this.sound && this.cache.audio.exists("comboColdBreezeSfx")) {
+      if (!this.coldSnapSfx) this.coldSnapSfx = this.sound.add("comboColdBreezeSfx", { volume: 0.9 });
+      if (this.coldSnapSfx.isPlaying) this.coldSnapSfx.stop();
+      this.coldSnapSfx.setVolume(0.9);
+      this.coldSnapSfx.play({ volume: 0.9 });
+
+      if (this.coldSnapSfx.isPlaying) {
+        const onSfxComplete = () => markSfxReady();
+        this.coldSnapSfx.once("complete", onSfxComplete);
+        detachSfxCompleteListener = () => {
+          if (!this.coldSnapSfx) { detachSfxCompleteListener = null; return; }
+          this.coldSnapSfx.off("complete", onSfxComplete);
+          detachSfxCompleteListener = null;
+        };
+      } else {
+        canExitForSfx = true;
+      }
+    } else {
+      canExitForSfx = true;
+    }
+
+    this.cutIn.particles.forEach((p) => p.destroy());
+    this.cutIn.particles = [];
+
+    this.cutIn.overlay.setVisible(true).setAlpha(0);
+    this.tweens.add({ targets: this.cutIn.overlay, alpha: 0.5, duration: 130 });
+
+    this.cutIn.stripe.setVisible(true).setFillStyle(0x002244, 0.95).setPosition(width * 0.5, height + 120).setDisplaySize(width + 100, 148).setAngle(0).setAlpha(1);
+    this.cutIn.stripeAccent.setVisible(true).setFillStyle(0x0088ff, 0.95).setPosition(width * 0.5, height + 188).setDisplaySize(width + 100, 5).setAngle(0).setAlpha(0.85);
+    this.cutIn.stripeAccentTop.setVisible(true).setFillStyle(0x66ccff, 0.92).setPosition(width * 0.5, height + 52).setDisplaySize(width + 100, 5).setAngle(0).setAlpha(0.9);
+
+    this.cutIn.title.setVisible(true).setText("Cold Snap!!").setColor("#aaddff").setPosition(width * 0.5, height + 98).setAlpha(1).setScale(0.9);
+    this.cutIn.subtitle.setVisible(true).setText("TILES WILL FREEZE OVER").setColor("#66aaff").setPosition(width * 0.5, height + 130).setAlpha(0.95).setScale(1);
+
+    this.cutIn.sprite.setVisible(true).setTexture("propIce").setPosition(width * 0.5 - 260, height + 120).setAlpha(0.95).setAngle(-8).setTint(0x66ccff);
+    this.cutIn.spriteShadow.setVisible(true).setTexture("propIce").setPosition(width * 0.5 - 248, height + 136).setAlpha(0.34).setAngle(-8).setTint(0x000000);
+
+    const source = this.cutIn.sprite.texture.getSourceImage();
+    const spriteRatio = Math.min(118 / (source.width || 1), 136 / (source.height || 1));
+    this.cutIn.sprite.setScale(spriteRatio);
+
+    for (let i = 0; i < 16; i += 1) {
+      const ember = this.add.circle(width * 0.5 + Phaser.Math.Between(-290, 290), height + Phaser.Math.Between(20, 180), Phaser.Math.Between(2, 4), 0xaaddff, 0.8).setDepth(252);
+      this.cutIn.particles.push(ember);
+      this.tweens.add({
+        targets: ember,
+        y: ember.y - Phaser.Math.Between(80, 180),
+        x: ember.x + Phaser.Math.Between(-16, 16),
+        alpha: 0,
+        scale: 0.3,
+        duration: Phaser.Math.Between(420, 760),
+        delay: Phaser.Math.Between(0, 120),
+        ease: "Cubic.easeOut",
+      });
+    }
+
+    this.cameras.main.shake(220, 0.0038);
+
+    this.tweens.add({
+      targets: [this.cutIn.stripe, this.cutIn.stripeAccent, this.cutIn.stripeAccentTop, this.cutIn.title, this.cutIn.subtitle, this.cutIn.sprite, this.cutIn.spriteShadow],
+      y: "-=320",
+      duration: 260,
+      ease: "Back.easeOut",
+      onComplete: () => {
+        this.tweens.add({ targets: this.cutIn.title, scaleX: 1.04, scaleY: 1.04, duration: 140, yoyo: true, repeat: 1, ease: "Sine.easeInOut" });
+      },
+    });
+  }
+
   resolveIceMerges(merges) {
     merges.forEach((merge) => {
       if (merge.type !== "ice") {
@@ -1620,7 +2388,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       }
 
       const tile = this.board[merge.y][merge.x];
-      if (!tile) {
+      if (!tile || this.freezeTurns[merge.y][merge.x] > 0) {
         return;
       }
 
@@ -1639,7 +2407,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
         }
 
         const tile = this.board[y][x];
-        if (!tile || tile.type === "ice") {
+        if (!tile || tile.type === "ice" || this.freezeTurns[y][x] > 0) {
           continue;
         }
 
@@ -2701,7 +3469,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       }
 
       const tile = this.board[y][x];
-      if (!tile) {
+      if (!tile || this.freezeTurns[y][x] > 0) {
         return;
       }
 
@@ -2740,7 +3508,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     for (let y = 0; y < this.gridSize; y += 1) {
       for (let x = 0; x < this.gridSize; x += 1) {
         const tile = this.board[y][x];
-        if (tile && tile.type === "tea") {
+        if (tile && tile.type === "tea" && this.freezeTurns[y][x] <= 0) {
           this.board[y][x] = { type: bestType, tier: 1, charge: 0 };
           this.freezeTurns[y][x] = 0;
         }
@@ -2806,7 +3574,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       }
 
       const tile = this.board[y][x];
-      if (!tile) {
+      if (!tile || this.freezeTurns[y][x] > 0) {
         return;
       }
 
@@ -2912,7 +3680,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     for (let y = 0; y < this.gridSize; y += 1) {
       for (let x = 0; x < this.gridSize; x += 1) {
         const tile = this.board[y][x];
-        if (tile && tile.type === "coffee") {
+        if (tile && tile.type === "coffee" && this.freezeTurns[y][x] <= 0) {
           coffees.push({ x, y, tile });
         }
       }
@@ -2940,6 +3708,10 @@ export class OverheatPuzzleScene extends Phaser.Scene {
         }
 
         if ((tile.tier ?? 1) !== 1) {
+          continue;
+        }
+
+        if (this.freezeTurns[y][x] > 0) {
           continue;
         }
 
@@ -3102,7 +3874,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     for (let y = 0; y < this.gridSize; y += 1) {
       for (let x = 0; x < this.gridSize; x += 1) {
         const tile = this.board[y][x];
-        if (!tile || tile.type !== "coffee") {
+        if (!tile || tile.type !== "coffee" || this.freezeTurns[y][x] > 0) {
           continue;
         }
 
@@ -3116,7 +3888,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     for (let y = 0; y < this.gridSize; y += 1) {
       for (let x = 0; x < this.gridSize; x += 1) {
         const tile = this.board[y][x];
-        if (!tile || tile.type !== "water") {
+        if (!tile || tile.type !== "water" || this.freezeTurns[y][x] > 0) {
           continue;
         }
 
@@ -3163,12 +3935,13 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     return false;
   }
 
-  applyIceFreezeGuard() {
+  applyIceFreezeGuard(isFromColdSnap = false) {
     const candidates = [];
 
     for (let y = 0; y < this.gridSize; y += 1) {
       for (let x = 0; x < this.gridSize; x += 1) {
-        if (this.board[y][x]) {
+        const tile = this.board[y][x];
+        if (tile && tile.type !== "ice" && this.freezeTurns[y][x] <= 0) {
           candidates.push({ x, y });
         }
       }
@@ -3179,7 +3952,11 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     }
 
     const chosen = Phaser.Utils.Array.GetRandom(candidates);
-    this.freezeTurns[chosen.y][chosen.x] = 1;
+    if (isFromColdSnap) {
+      this.freezeTurns[chosen.y][chosen.x] = this.coldSnapPhaseDurationMoves;
+    } else {
+      this.freezeTurns[chosen.y][chosen.x] = 2;
+    }
   }
 
   tickFreezeTurns() {
@@ -3187,6 +3964,31 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       for (let x = 0; x < this.gridSize; x += 1) {
         if (this.freezeTurns[y][x] > 0) {
           this.freezeTurns[y][x] -= 1;
+
+          if (this.freezeTurns[y][x] === 0) {
+            const idx = y * this.gridSize + x;
+            const freezeOverlay = this.freezeOverlays[idx];
+            const freezeText = this.freezeTexts[idx];
+
+            if (freezeText) {
+              freezeText.setText("");
+            }
+
+            if (freezeOverlay && freezeOverlay.visible) {
+              this.tweens.add({
+                targets: freezeOverlay,
+                alpha: 0,
+                duration: 400,
+                ease: "Quad.easeOut",
+                onComplete: () => {
+                  if (freezeOverlay.active) {
+                    freezeOverlay.setVisible(false);
+                    freezeOverlay.setAlpha(0.8);
+                  }
+                },
+              });
+            }
+          }
         }
       }
     }
@@ -3261,7 +4063,8 @@ export class OverheatPuzzleScene extends Phaser.Scene {
           return;
         }
 
-        if (next.type === tile.type && tile.type !== "coffee") {
+        // if (next.type === tile.type && tile.type !== "coffee") {
+        if (next.type === tile.type && tile.type !== "coffee" && this.freezeTurns[ny][nx] <= 0) {
           const fillRatio = this.getTileFillRatio(tile);
           const higher = Math.max(next.tier, tile.tier);
           const lower = Math.min(next.tier, tile.tier);
@@ -3374,7 +4177,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       }
 
       const next = this.board[ny][nx];
-      if (!next || (next.type === tile.type && tile.type !== "coffee")) {
+      if (!next || (next.type === tile.type && tile.type !== "coffee" && this.freezeTurns[ny][nx] <= 0)) {
         return true;
       }
     }
@@ -3658,6 +4461,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
         const spriteBase = this.tileSpritesBase[idx];
         const sprite = this.tileSprites[idx];
         const freezeText = this.freezeTexts[idx];
+        const freezeOverlay = this.freezeOverlays[idx];
 
         if (!tile) {
           rect.setFillStyle(0x1c2a36, 1);
@@ -3666,6 +4470,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
           sprite.setVisible(false).setAlpha(1).setAngle(0).setScale(1);
           strokes.forEach(s => s.setVisible(false));
           freezeText.setText("");
+          if (freezeOverlay) freezeOverlay.setVisible(false);
           continue;
         }
 
@@ -3704,6 +4509,22 @@ export class OverheatPuzzleScene extends Phaser.Scene {
         }
 
         freezeText.setText(this.freezeTurns[y][x] > 0 ? "F" : "");
+
+        if (this.freezeTurns[y][x] > 0) {
+          if (freezeOverlay) {
+            freezeOverlay.setVisible(true);
+            const source = freezeOverlay.texture.getSourceImage();
+            const ratio = Math.min(54 / (source.width || 1), 66 / (source.height || 1));
+            freezeOverlay.setScale(ratio * 1.15);
+            if (!this.tweens.isTweening(freezeOverlay)) {
+              freezeOverlay.setAlpha(0.8);
+            }
+          }
+        } else {
+          if (freezeOverlay && !this.tweens.isTweening(freezeOverlay)) {
+            freezeOverlay.setVisible(false);
+          }
+        }
       }
     }
   }
@@ -3800,6 +4621,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       const spriteBase = this.tileSpritesBase[idx];
       const sprite = this.tileSprites[idx];
       const freezeText = this.freezeTexts[idx];
+      const freezeOverlay = this.freezeOverlays[idx];
 
       if (rect) {
         rect.setFillStyle(0x1c2a36, 1);
@@ -3816,6 +4638,9 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       }
       if (freezeText) {
         freezeText.setText("");
+      }
+      if (freezeOverlay) {
+        freezeOverlay.setVisible(false);
       }
     });
 
