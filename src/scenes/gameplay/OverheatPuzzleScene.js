@@ -92,6 +92,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       title: null,
       subtitle: null,
       sprite: null,
+      eventChar: null,
       particles: [],
     };
 
@@ -998,17 +999,18 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       character.setDisplaySize(240, 460);
     }
 
-    const title = this.add.text(cx, cy - 200, "HOW TO PLAY", {
+    const title = this.add.text(cx, cy - 210, "HOW TO PLAY", {
       fontFamily: "Yoster",
       fontSize: "24px",
       color: "#ffffff"
     }).setOrigin(0.5);
 
-    const content = this.add.text(cx, cy - 160,
+    const content = this.add.text(cx, cy - 175,
       "GAME MECHANICS:\n" +
       "- Merge same drinks to charge slots. Full slots burst!\n" +
       "- Prevent the Ice Core from melting to stay alive.\n" +
-      "- Warning: Coffee is spreading across the grid over time!\n\n" +
+      "- Warning: Coffee is spreading across the grid over time!\n" +
+      "- At 100+ moves, the board has a random chance to shuffle!\n\n" +
       "EVENTS:\n" +
       "- Heat Intensifies: Core drains faster, coffee spreads.\n" +
       "- Cold Snap: Moves cost nothing, but some tiles freeze.\n\n" +
@@ -1028,8 +1030,8 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       }
     ).setOrigin(0.5, 0);
 
-    const closeBtn = this.add.rectangle(cx, cy + 190, 120, 34, 0x2a4255, 1).setStrokeStyle(2, 0x7fabca, 1);
-    const closeText = this.add.text(cx, cy + 190, "CLOSE", {
+    const closeBtn = this.add.rectangle(cx, cy + 210, 120, 34, 0x2a4255, 1).setStrokeStyle(2, 0x7fabca, 1);
+    const closeText = this.add.text(cx, cy + 210, "CLOSE", {
       fontFamily: "Yoster",
       fontSize: "14px",
       color: "#eaf4ff"
@@ -1140,6 +1142,12 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     this.cutIn.sprite = this.add
       .image(width * 0.18, height * 0.5, "propCola")
       .setDepth(254)
+      .setVisible(false);
+
+    this.cutIn.eventChar = this.add
+      .image(width + 200, height * 0.5, "heatChar")
+      .setDepth(245)
+      .setOrigin(0.5, 0.5)
       .setVisible(false);
 
     this.cutIn.particles = [];
@@ -1678,6 +1686,22 @@ export class OverheatPuzzleScene extends Phaser.Scene {
         ease: "Cubic.easeIn",
       });
 
+      // Slide event character back out to the left
+      if (this.cutIn.eventChar && this.cutIn.eventChar.visible) {
+        this.tweens.killTweensOf(this.cutIn.eventChar);
+        const charHalfW = this.cutIn.eventChar.displayWidth * 0.5;
+        this.tweens.add({
+          targets: this.cutIn.eventChar,
+          x: -charHalfW,
+          alpha: 0,
+          duration: exitDuration + 200,
+          ease: "Cubic.easeIn",
+          onComplete: () => {
+            this.cutIn.eventChar.setVisible(false);
+          },
+        });
+      }
+
       this.tweens.add({
         targets: this.cutIn.overlay,
         alpha: 0,
@@ -1932,6 +1956,22 @@ export class OverheatPuzzleScene extends Phaser.Scene {
         ease: "Cubic.easeIn",
       });
 
+      // Slide event character back out to the left with the notification
+      if (this.cutIn.eventChar && this.cutIn.eventChar.visible) {
+        this.tweens.killTweensOf(this.cutIn.eventChar);
+        const charHalfW = this.cutIn.eventChar.displayWidth * 0.5;
+        this.tweens.add({
+          targets: this.cutIn.eventChar,
+          x: -charHalfW,
+          alpha: 0,
+          duration: exitDuration + 200,
+          ease: "Cubic.easeIn",
+          onComplete: () => {
+            this.cutIn.eventChar.setVisible(false);
+          },
+        });
+      }
+
       this.tweens.add({
         targets: this.cutIn.overlay,
         alpha: 0,
@@ -2136,6 +2176,35 @@ export class OverheatPuzzleScene extends Phaser.Scene {
         });
       },
     });
+
+    // Animate heatChar sliding in from the left side (half body visible)
+    if (this.cutIn.eventChar) {
+      this.tweens.killTweensOf(this.cutIn.eventChar);
+      this.cutIn.eventChar
+        .setTexture("heatChar")
+        .setVisible(true)
+        .setAlpha(0);
+
+      const charSource = this.cutIn.eventChar.texture.getSourceImage();
+      const charH = charSource.height || 1;
+      const charScale = (height * 0.85) / charH;
+      this.cutIn.eventChar.setScale(charScale);
+
+      const charHalfW = this.cutIn.eventChar.displayWidth * 0.5;
+      // Start off-screen to the left
+      this.cutIn.eventChar.setPosition(-charHalfW, height * 0.5);
+
+      // Slide in so roughly half the body peeks from the left edge
+      const targetX = charHalfW * 0.45;
+
+      this.tweens.add({
+        targets: this.cutIn.eventChar,
+        x: targetX,
+        alpha: 0.9,
+        duration: 500,
+        ease: "Back.easeOut",
+      });
+    }
   }
 
   playColdSnapFadesCutIn(done) {
@@ -2178,6 +2247,22 @@ export class OverheatPuzzleScene extends Phaser.Scene {
         duration: exitDuration + 100,
         ease: "Cubic.easeIn",
       });
+
+      // Slide event character back out to the left
+      if (this.cutIn.eventChar && this.cutIn.eventChar.visible) {
+        this.tweens.killTweensOf(this.cutIn.eventChar);
+        const charHalfW = this.cutIn.eventChar.displayWidth * 0.5;
+        this.tweens.add({
+          targets: this.cutIn.eventChar,
+          x: -charHalfW,
+          alpha: 0,
+          duration: exitDuration + 200,
+          ease: "Cubic.easeIn",
+          onComplete: () => {
+            this.cutIn.eventChar.setVisible(false);
+          },
+        });
+      }
 
       this.tweens.add({
         targets: this.cutIn.overlay,
@@ -2334,6 +2419,22 @@ export class OverheatPuzzleScene extends Phaser.Scene {
         ease: "Cubic.easeIn",
       });
 
+      // Slide event character back out to the left with the notification
+      if (this.cutIn.eventChar && this.cutIn.eventChar.visible) {
+        this.tweens.killTweensOf(this.cutIn.eventChar);
+        const charHalfW = this.cutIn.eventChar.displayWidth * 0.5;
+        this.tweens.add({
+          targets: this.cutIn.eventChar,
+          x: -charHalfW,
+          alpha: 0,
+          duration: exitDuration + 200,
+          ease: "Cubic.easeIn",
+          onComplete: () => {
+            this.cutIn.eventChar.setVisible(false);
+          },
+        });
+      }
+
       this.tweens.add({
         targets: this.cutIn.overlay,
         alpha: 0,
@@ -2443,6 +2544,35 @@ export class OverheatPuzzleScene extends Phaser.Scene {
         this.tweens.add({ targets: this.cutIn.title, scaleX: 1.04, scaleY: 1.04, duration: 140, yoyo: true, repeat: 1, ease: "Sine.easeInOut" });
       },
     });
+
+    // Animate coldChar sliding in from the left side (half body visible)
+    if (this.cutIn.eventChar) {
+      this.tweens.killTweensOf(this.cutIn.eventChar);
+      this.cutIn.eventChar
+        .setTexture("coldChar")
+        .setVisible(true)
+        .setAlpha(0);
+
+      const charSource = this.cutIn.eventChar.texture.getSourceImage();
+      const charH = charSource.height || 1;
+      const charScale = (height * 0.85) / charH;
+      this.cutIn.eventChar.setScale(charScale);
+
+      const charHalfW = this.cutIn.eventChar.displayWidth * 0.5;
+      // Start off-screen to the left
+      this.cutIn.eventChar.setPosition(-charHalfW, height * 0.5);
+
+      // Slide in so roughly half the body peeks from the left edge
+      const targetX = charHalfW * 0.45;
+
+      this.tweens.add({
+        targets: this.cutIn.eventChar,
+        x: targetX,
+        alpha: 0.9,
+        duration: 500,
+        ease: "Back.easeOut",
+      });
+    }
   }
 
   playBoardShuffleAnimation(onComplete) {

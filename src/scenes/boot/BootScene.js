@@ -19,6 +19,8 @@ export class BootScene extends Phaser.Scene {
     this.load.image("student3", "public/assets/images/props/student3.png");
     this.load.image("student4", "public/assets/images/props/student4.png");
     this.load.image("howtoplay", "public/assets/images/props/howtoplay.PNG");
+    this.load.image("heatChar", "public/assets/images/props/heatChar.PNG");
+    this.load.image("coldChar", "public/assets/images/props/coldChar.PNG");
     this.load.audio("menuBgm", "public/assets/audio/music/After_The_Last_Train.mp3");
     this.load.audio("rainLineSfx", "public/assets/audio/music/Rain_Against_the_Glass.mp3");
     this.load.audio("typingSfx", "public/assets/audio/sfx/typing.mp3");
