@@ -366,7 +366,11 @@ export class MainMenuScene extends Phaser.Scene {
     this.cameras.main.flash(160, 178, 246, 255, true);
     this.time.delayedCall(120, () => {
       this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-        this.scene.start("OverheatPuzzleScene", { tutorial: tutorialMode });
+        if (tutorialMode) {
+          this.scene.start("TutorialScene");
+        } else {
+          this.scene.start("OverheatPuzzleScene", { tutorial: false });
+        }
       });
       this.cameras.main.fadeOut(260, 10, 16, 24);
     });

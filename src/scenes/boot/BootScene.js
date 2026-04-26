@@ -6,17 +6,29 @@ export class BootScene extends Phaser.Scene {
   preload() {
     this.load.image("bgMachine", "public/assets/images/backgrounds/Machine.jpg");
     this.load.image("bgHuman", "public/assets/images/backgrounds/Human.jpg");
+    this.load.image("drinkingLoad", "public/assets/images/backgrounds/DrinkingLoad.gif");
+    this.load.spritesheet("drinkingLoadSheet", "public/assets/spritesheets/drinkingLoad_sheet.png", {
+      frameWidth: 512,
+      frameHeight: 288,
+      endFrame: 24,
+    });
     this.load.image("bgVendingMachine", "public/assets/images/backgrounds/VendingMachine.png");
     this.load.image("bgCustomer", "public/assets/images/backgrounds/CustomerBG.png");
+    this.load.image("tutorialLoreHall", "public/assets/images/backgrounds/LoreBg.png");
+    this.load.image("tutorialGuardian", "public/assets/images/characters/Guardian.png");
     this.load.image("propWater", "public/assets/images/props/waterbottle.png");
     this.load.image("propCola", "public/assets/images/props/cola.png");
     this.load.image("propCoffee", "public/assets/images/props/coffee.png");
     this.load.image("propIce", "public/assets/images/props/icecube.png");
+    this.load.image("propIceBlock", "public/assets/images/props/icleblock.svg");
     this.load.image("propTea", "public/assets/images/props/tea.png");
     this.load.image("propJuice", "public/assets/images/props/juice.png");
     this.load.image("student2", "public/assets/images/props/student2.png");
     this.load.image("student3", "public/assets/images/props/student3.png");
     this.load.image("student4", "public/assets/images/props/student4.png");
+    this.load.image("howtoplay", "public/assets/images/props/howtoplay.PNG");
+    this.load.image("heatChar", "public/assets/images/props/heatChar.PNG");
+    this.load.image("coldChar", "public/assets/images/props/coldChar.PNG");
     this.load.audio("menuBgm", "public/assets/audio/music/After_The_Last_Train.mp3");
     this.load.audio("rainLineSfx", "public/assets/audio/music/Rain_Against_the_Glass.mp3");
     this.load.audio("typingSfx", "public/assets/audio/sfx/typing.mp3");
@@ -33,7 +45,13 @@ export class BootScene extends Phaser.Scene {
     this.load.audio("comboRefreshingSfx", "public/assets/audio/sfx/Refreshing.mp3");
     this.load.audio("comboSweetDrinkSfx", "public/assets/audio/sfx/SweetDrinks.mp3");
     this.load.audio("comboColdBreezeSfx", "public/assets/audio/sfx/Coldbreeze.mp3");
+    this.load.audio("coldSnapEventSfx", "public/assets/audio/sfx/ColdSnap.mp3");
     this.load.audio("popSfx", "public/assets/audio/sfx/pop.mp3");
+    this.load.audio("heatIntensifiesSfx", "public/assets/audio/sfx/HeatIntensifies.mp3");
+    this.load.audio("eventSfx", "public/assets/audio/sfx/event.mp3");
+    this.load.audio("endEventSfx", "public/assets/audio/sfx/endEvent.mp3");
+    this.load.audio("eventMusic", "public/assets/audio/music/eventmusic.mp3");
+    this.load.audio("gameOverMusic", "public/assets/audio/music/GameOver.mp3");
   }
 
   async create() {

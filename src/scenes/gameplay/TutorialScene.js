@@ -1,6 +1,6 @@
-export class OverheatPuzzleScene extends Phaser.Scene {
+export class TutorialScene extends Phaser.Scene {
   constructor() {
-    super("OverheatPuzzleScene");
+    super("TutorialScene");
 
     this.gridSize = 5;
     this.cellSize = 86;
@@ -27,10 +27,10 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     this.coldSnapPhaseTriggered = false;
     this.coldSnapPhaseMovesRemaining = 0;
 
-      this.iceCoreMax = 20;
-      this.iceCore = 16;
+    this.iceCoreMax = 20;
+    this.iceCore = 16;
 
-      this.coffeePassiveInterval = 3;
+    this.coffeePassiveInterval = 3;
 
     this.burstThresholds = {
       water: 3,
@@ -41,7 +41,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       ice: 999,
     };
 
-      this.iceChargeMax = 6;
+    this.iceChargeMax = 6;
 
     this.productColors = {
       water: 0x66b8ff,
@@ -74,15 +74,15 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       "coffee",
     ];
 
-      this.cellRects = [];
-      this.tileSprites = [];
-      this.freezeTexts = [];
+    this.cellRects = [];
+    this.tileSprites = [];
+    this.freezeTexts = [];
 
-      this.iceCoreText = null;
-      this.scoreText = null;
-      this.turnText = null;
-      this.messageText = null;
-      this.iceCoreBar = null;
+    this.iceCoreText = null;
+    this.scoreText = null;
+    this.turnText = null;
+    this.messageText = null;
+    this.iceCoreBar = null;
 
     this.cutIn = {
       overlay: null,
@@ -92,34 +92,30 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       title: null,
       subtitle: null,
       sprite: null,
-      eventChar: null,
       particles: [],
     };
 
-      this.heatBoardOutline = null;
-      this.heatBoardGlow = null;
+    this.heatBoardOutline = null;
+    this.heatBoardGlow = null;
 
-      this.gameplayBgm = null;
-      this.gameOverMusic = null;
-      this.freshenUpSfx = null;
-      this.heatIntensifiesSfx = null;
-      this.coldSnapSfx = null;
-      this.activeHeatCutInState = null;
-      this.comboSfxByKey = {};
-      this.activeComboSfx = null;
-      this.activeColaBurstSound = null;
-      this.turnFreshenCount = 0;
-      this.turnFreshenTypes = new Set();
-      this.turnComboTier = 0;
-      this.turnComboSoundPlayed = false;
-      this.isSlideAnimating = false;
-      this.activeMoveSprites = [];
-      this.swipeStartPoint = null;
+    this.gameplayBgm = null;
+    this.freshenUpSfx = null;
+    this.heatIntensifiesSfx = null;
+    this.coldSnapSfx = null;
+    this.activeHeatCutInState = null;
+    this.comboSfxByKey = {};
+    this.activeComboSfx = null;
+    this.activeColaBurstSound = null;
+    this.turnFreshenCount = 0;
+    this.turnFreshenTypes = new Set();
+    this.turnComboTier = 0;
+    this.turnComboSoundPlayed = false;
+    this.isSlideAnimating = false;
+    this.activeMoveSprites = [];
 
-      this.customerSprite = null;
-      this.customerBubble = null;
-      this.customerText = null;
-      this.gameOverPanel = null;
+    this.customerSprite = null;
+    this.customerBubble = null;
+    this.customerText = null;
 
     this.iceMeltCause = null;
     this.coffeeBurstsThisInstance = 0;
@@ -131,18 +127,230 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       lastMeltParticleAt: 0,
       lastRightParticleAt: 0,
     };
+
+    this.loadingOverlayElements = [];
+    this.tutorialLoadingEvent = null;
+    this.tutorialGuideText = null;
+    this.tutorialGuideSubText = null;
+    this.tutorialNotificationText = null;
+    this.tutorialNotificationLines = [];
+    this.tutorialStepIndex = 0;
+    this.tutorialStats = {
+      moves: 0,
+      merges: 0,
+      bursts: 0,
+    };
+    this.tutorialInputLocked = false;
+    this.tutorialGuideComplete = false;
+    this.tutorialLoreElements = [];
+    this.tutorialDialogueElements = [];
+    this.tutorialDialogueScript = [];
+    this.tutorialDialogueIndex = 0;
+    this.tutorialSparkTriggered = false;
+    this.tutorialCinematicElements = [];
+    this.tutorialCinematicGuardian = null;
+    this.tutorialSelectedQuestion = null;
+    this.tutorialDialoguePhase = "pre";
+    this.tutorialTapHintTween = null;
+    this.dialogueTapAction = null;
+    this.dialogueTapCooldownUntil = 0;
+    this.tutorialDustEvents = [];
+
+    // Expanded tutorial system state
+    this.tutorialHighlightElements = [];
+    this.tutorialTipElements = [];
+    this.tutorialTipActive = false;
+    this.skipConfirmElements = [];
+    this.tutorialSkipButton = null;
+    this.tutorialStartingIceCore = 0;
+    this.tutorialFirstBurstSeen = false;
+    this.tutorialCoffeeSeen = false;
+    this.tutorialCoffeeUnlocked = false;
+    this.tutorialBestMoveFollowed = false;
+    this.tutorialComboSeen = false;
+    this.tutorialBestDirection = null;
+    this.tutorialRumbleLoading = false;
+    this.activeTutorialRumbleSfx = null;
   }
 
   init(data) {
-    this.tutorialMode = Boolean(data && data.tutorial);
+    this.tutorialMode = true;
+    this.skipTutorialLoading = Boolean(data && data.skipLoading);
   }
 
   create() {
+    this.ensureTutorialRumbleSfxLoaded();
+
+    this.input.on("pointerdown", this.handleGlobalDialogueTap, this);
+
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.input.off("pointerdown", this.handleGlobalDialogueTap, this);
+      this.destroyTutorialLoadingOverlay();
+      this.destroyTutorialLoreModal();
+      this.destroyTutorialDialogue();
+      if (this.tutorialLoadingEvent) {
+        this.tutorialLoadingEvent.remove(false);
+        this.tutorialLoadingEvent = null;
+      }
+      this.stopTutorialRumbleSfx();
+      this.dialogueTapAction = null;
+    });
+
+    if (this.skipTutorialLoading) {
+      this.startTutorialGameplay();
+      return;
+    }
+
+    this.showTutorialLoadingScreen();
+  }
+
+  handleGlobalDialogueTap() {
+    if (!this.dialogueTapAction) {
+      return;
+    }
+
+    const now = this.time && typeof this.time.now === "number" ? this.time.now : Date.now();
+    if (now < this.dialogueTapCooldownUntil) {
+      return;
+    }
+
+    this.dialogueTapCooldownUntil = now + 120;
+    this.dialogueTapAction();
+  }
+
+  ensureTutorialRumbleSfxLoaded() {
+    if (this.cache.audio.exists("tutorialRumbleSfx") || this.tutorialRumbleLoading) {
+      return;
+    }
+
+    this.tutorialRumbleLoading = true;
+    this.load.audio("tutorialRumbleSfx", "public/assets/audio/sfx/Rumble.mp3");
+    this.load.once(Phaser.Loader.Events.COMPLETE, () => {
+      this.tutorialRumbleLoading = false;
+    });
+    this.load.start();
+  }
+
+  stopTutorialRumbleSfx() {
+    if (!this.activeTutorialRumbleSfx) {
+      return;
+    }
+
+    if (this.activeTutorialRumbleSfx.isPlaying) {
+      this.activeTutorialRumbleSfx.stop();
+    }
+    this.activeTutorialRumbleSfx.destroy();
+    this.activeTutorialRumbleSfx = null;
+  }
+
+  playTutorialGuardianRumbleCue() {
+    if (this.registry.get("muteSfx") || !this.sys || !this.sys.isActive() || !this.sound) {
+      return;
+    }
+
+    if (!this.cache.audio.exists("tutorialRumbleSfx")) {
+      this.ensureTutorialRumbleSfxLoaded();
+      return;
+    }
+
+    this.stopTutorialRumbleSfx();
+
+    const rumble = this.sound.add("tutorialRumbleSfx", { volume: 0.55 });
+    this.activeTutorialRumbleSfx = rumble;
+    rumble.play({ volume: 0.55, seek: 8 });
+
+    this.time.delayedCall(4000, () => {
+      if (this.activeTutorialRumbleSfx !== rumble) {
+        return;
+      }
+      this.stopTutorialRumbleSfx();
+    });
+  }
+
+  showTutorialLoadingScreen() {
+      // (No changes, preserve current implementation)
+    const { width, height } = this.scale;
+
+    this.cameras.main.setBackgroundColor("#000000");
+
+    // Start with a solid black screen, then fade it out to reveal the lore scene
+    const blackScreen = this.add.rectangle(width * 0.5, height * 0.5, width, height, 0x000000, 1).setDepth(900);
+
+    let loadingSign = null;
+    const signX = width * 0.5;
+    const signY = height * 0.5;
+    const signSize = 210;
+
+    if (this.textures.exists("drinkingLoadSheet")) {
+      if (!this.anims.exists("tutorialLoadingDrink")) {
+        this.anims.create({
+          key: "tutorialLoadingDrink",
+          frames: this.anims.generateFrameNumbers("drinkingLoadSheet", { start: 0, end: 24 }),
+          frameRate: 8,
+          repeat: -1,
+        });
+      }
+
+      loadingSign = this.add.sprite(signX, signY, "drinkingLoadSheet", 0).setDepth(902).setAlpha(0.9).setTint(0xffffff);
+      loadingSign.setDisplaySize(signSize, signSize);
+      loadingSign.play("tutorialLoadingDrink");
+    } else if (this.textures.exists("drinkingLoad")) {
+      loadingSign = this.add.image(signX, signY, "drinkingLoad").setDepth(902).setAlpha(0.9).setTint(0xffffff);
+      loadingSign.setDisplaySize(signSize, signSize);
+    }
+
+    this.loadingOverlayElements = [blackScreen, loadingSign].filter(Boolean);
+
+    if (loadingSign) {
+      this.tweens.add({
+        targets: loadingSign,
+        alpha: { from: 0.72, to: 1 },
+        duration: 1000,
+        yoyo: true,
+        repeat: -1,
+        ease: "Sine.easeInOut",
+      });
+    }
+
+    if (this.tutorialLoadingEvent) {
+      this.tutorialLoadingEvent.remove(false);
+      this.tutorialLoadingEvent = null;
+    }
+
+    // Keep loading sign visible for 5 seconds, then fade out to reveal the guardian arrival scene.
+    this.tutorialLoadingEvent = this.time.delayedCall(5000, () => {
+      this.tutorialLoadingEvent = null;
+      this.tweens.add({
+        targets: this.loadingOverlayElements,
+        alpha: 0,
+        duration: 1200,
+        ease: "Sine.easeInOut",
+        onComplete: () => {
+          this.destroyTutorialLoadingOverlay();
+          this.startTutorialGameplay();
+        },
+      });
+    });
+  }
+
+  destroyTutorialLoadingOverlay() {
+      // (No changes, preserve current implementation)
+    this.loadingOverlayElements.forEach((element) => {
+      if (element && element.active) {
+        element.destroy();
+      }
+    });
+    this.loadingOverlayElements = [];
+  }
+
+  startTutorialGameplay() {
     this.setupModeValues();
     this.initializeState();
     this.createLayout();
     this.bindInput();
     this.initializeGameplayAudio();
+    this.createTutorialGuidanceUI();
+    this.initializeTutorialFlow();
 
     this.ensureStartupIceTileVisible();
 
@@ -219,10 +427,1579 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     if (this.tutorialMode) {
       this.iceCoreMax = 22;
       this.iceCore = 22;
+      this.heatPhaseMoveThreshold = 999;
+      this.coldSnapPhaseMoveThreshold = 999;
     } else {
       this.iceCoreMax = 20;
       this.iceCore = 20;
     }
+  }
+
+  createTutorialGuidanceUI() {
+    const { width } = this.scale;
+    const panelX = width * 0.73;
+
+    // Panel shell background
+    this.add.rectangle(panelX, 287, 245, 470, 0x152532, 1).setStrokeStyle(2, 0x355064, 1);
+
+    // Step guide text
+    this.tutorialGuideText = this.add
+      .text(panelX, 90, "KNOW THE BASICS", {
+        fontFamily: "Yoster",
+        fontSize: "14px",
+        color: "#a8ffd1",
+        align: "center",
+        wordWrap: { width: 220 },
+      })
+      .setOrigin(0.5);
+
+    this.tutorialGuideSubText = this.add
+      .text(panelX, 128, "Start with one simple move, watch new tiles spawn each turn, merge matching drinks to build charge, and avoid no-merge moves because they drain Ice Core.", {
+        fontFamily: "Yoster",
+        fontSize: "11px",
+        color: "#9fc2dd",
+        align: "center",
+        wordWrap: { width: 210 },
+        lineSpacing: 3,
+      })
+      .setOrigin(0.5, 0);
+
+    // Ice Core Display
+    this.iceCoreText = this.add
+      .text(panelX, 228, "", {
+        fontFamily: "Yoster",
+        fontSize: "18px",
+        color: "#d7f3ff",
+      })
+      .setOrigin(0.5);
+
+    this.iceCoreBar = this.add.rectangle(panelX - 98, 245, 196, 14, 0x79ddff, 1).setOrigin(0, 0.5);
+    this.add.rectangle(panelX, 245, 196, 14, 0x2a3b48, 1).setOrigin(0.5).setDepth(this.iceCoreBar.depth - 1);
+
+    // Hide notification log text in tutorial side panel (keep data-only notifications).
+    this.tutorialNotificationText = null;
+
+    // Burst Thresholds
+    this.add
+      .text(panelX, 322, "BURST THRESHOLDS", {
+        fontFamily: "Yoster",
+        fontSize: "12px",
+        color: "#d4e6f4",
+      })
+      .setOrigin(0.5);
+
+    const iconSize = 32;
+    const addThresholdIcon = (cx, cy, type, amount) => {
+      const img = this.add.image(cx, cy, this.itemSpriteKeys[type]);
+      const source = img.texture.getSourceImage();
+      const w = source && source.width ? source.width : 50;
+      const h = source && source.height ? source.height : 50;
+      const ratio = Math.min(iconSize / w, iconSize / h);
+      img.setScale(ratio);
+
+      this.add.text(cx, cy + 26, amount.toString(), {
+        fontFamily: "Yoster",
+        fontSize: "12px",
+        color: "#bcd0e2",
+      }).setOrigin(0.5);
+    };
+
+    // Top row: Cola, Juice
+    addThresholdIcon(panelX - 48, 352, "cola", 5);
+    addThresholdIcon(panelX + 48, 352, "juice", 4);
+
+    // Bottom row: Water, Coffee, Tea
+    addThresholdIcon(panelX - 72, 402, "water", 3);
+    addThresholdIcon(panelX, 402, "coffee", 2);
+    addThresholdIcon(panelX + 72, 402, "tea", 6);
+
+    this.burstThresholdHighlightArea = {
+      x: panelX,
+      y: 382,
+      width: 214,
+      height: 112,
+    };
+
+    // Hidden surrogates for score, turn, message
+    const hiddenX = -900;
+    this.scoreText = this.add.text(hiddenX, 0, "", { fontSize: "1px" }).setVisible(false);
+    this.turnText = this.add.text(hiddenX, 0, "", { fontSize: "1px" }).setVisible(false);
+    this.messageText = this.add.text(hiddenX, 0, "", { fontSize: "1px" }).setVisible(false);
+  }
+
+  initializeTutorialFlow() {
+    this.tutorialStepIndex = 0;
+    this.tutorialStats = { moves: 0, merges: 0, bursts: 0 };
+    this.tutorialInputLocked = true;
+    this.tutorialGuideComplete = false;
+    this.tutorialNotificationLines = [];
+    this.tutorialSparkTriggered = false;
+    this.tutorialCinematicElements = [];
+    this.tutorialCinematicGuardian = null;
+    this.tutorialDustEvents = [];
+    this.tutorialSelectedQuestion = null;
+    this.tutorialDialoguePhase = "pre";
+
+    // Expanded tutorial state
+    this.tutorialHighlightElements = [];
+    this.tutorialTipElements = [];
+    this.tutorialTipActive = false;
+    this.activeTutorialTipMeta = null;
+    this.tutorialStartingIceCore = this.iceCore;
+    this.tutorialFirstBurstSeen = false;
+    this.tutorialCoffeeSeen = false;
+    this.tutorialCoffeeUnlocked = false;
+    this.tutorialBestMoveFollowed = false;
+    this.tutorialComboSeen = false;
+    this.tutorialBestDirection = null;
+
+    this.updateTutorialGuide();
+    this.appendTutorialNotification("Boot sequence: tutorial initialized.");
+    this.showTutorialGuardianArrivalSequence();
+  }
+
+  showInitialTutorialPopups() {
+    const tips = [
+      { title: "ICE CORE", body: "This is your Ice Core bar.\nIt is your health.\nMoving without merging costs -1 Ice Core.", x: this.scale.width * 0.73, y: 190 },
+      { title: "BURST THRESHOLDS", body: "This is the Burst Threshold capacity for each item.\nMerge items to fulfill their burst skills.", x: this.scale.width * 0.73, y: 382 },
+    ];
+
+    let currentTipIndex = 0;
+
+    const showNextTip = () => {
+      if (currentTipIndex >= tips.length) {
+        this.tutorialInputLocked = false;
+        this.highlightBestMove();
+        return;
+      }
+
+      const tip = tips[currentTipIndex];
+      currentTipIndex++;
+      this.showTutorialTip(tip.title, tip.body, tip.x, tip.y, showNextTip);
+    };
+
+    showNextTip();
+  }
+
+  showTutorialSkipButton() {
+    const { width } = this.scale;
+
+    const skipButton = this.add
+      .text(width - 20, 20, "✕ SKIP", {
+        fontFamily: "Yoster",
+        fontSize: "14px",
+        color: "#c0c8d4",
+        backgroundColor: "rgba(10,20,30,0.6)",
+        padding: { left: 8, right: 8, top: 4, bottom: 4 },
+      })
+      .setOrigin(1, 0)
+      .setDepth(570)
+      .setInteractive({ useHandCursor: true });
+
+    this.tutorialSkipButton = skipButton;
+    this.tutorialCinematicElements.push(skipButton);
+
+    skipButton.on("pointerover", () => {
+      skipButton.setColor("#ffffff").setBackgroundColor("rgba(20,30,40,0.8)");
+    });
+    skipButton.on("pointerout", () => {
+      skipButton.setColor("#c0c8d4").setBackgroundColor("rgba(10,20,30,0.6)");
+    });
+
+    skipButton.on("pointerdown", (pointer) => {
+      if (!pointer.leftButtonDown()) {
+        return;
+      }
+      this.showSkipConfirmation();
+    });
+  }
+
+  showSkipConfirmation() {
+    if (this.skipConfirmElements && this.skipConfirmElements.length > 0) {
+      return;
+    }
+
+    const { width, height } = this.scale;
+    this.skipConfirmElements = [];
+
+    const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.7).setDepth(700).setInteractive();
+    const panel = this.add.rectangle(width / 2, height / 2, 380, 160, 0x112433).setStrokeStyle(2, 0x355064, 1).setDepth(701);
+    const title = this.add.text(width / 2, height / 2 - 40, "Skip the tutorial and return to the main menu?", {
+      fontFamily: "Yoster",
+      fontSize: "14px",
+      color: "#d4e8f7",
+      align: "center",
+      wordWrap: { width: 340 },
+    }).setOrigin(0.5).setDepth(702);
+
+    const yesBtn = this.add.rectangle(width / 2 - 80, height / 2 + 30, 120, 34, 0x2a4255).setStrokeStyle(2, 0x7fabca, 1).setDepth(702).setInteractive({ useHandCursor: true });
+    const yesText = this.add.text(width / 2 - 80, height / 2 + 30, "YES, SKIP", { fontFamily: "Yoster", fontSize: "14px", color: "#eaf4ff" }).setOrigin(0.5).setDepth(703);
+
+    const noBtn = this.add.rectangle(width / 2 + 80, height / 2 + 30, 120, 34, 0x2a4255).setStrokeStyle(2, 0x7fabca, 1).setDepth(702).setInteractive({ useHandCursor: true });
+    const noText = this.add.text(width / 2 + 80, height / 2 + 30, "NO, STAY", { fontFamily: "Yoster", fontSize: "14px", color: "#eaf4ff" }).setOrigin(0.5).setDepth(703);
+
+    this.skipConfirmElements.push(overlay, panel, title, yesBtn, yesText, noBtn, noText);
+
+    const cleanupConfirmation = () => {
+      this.skipConfirmElements.forEach(el => el.destroy());
+      this.skipConfirmElements = [];
+    };
+
+    yesBtn.on("pointerover", () => yesBtn.setFillStyle(0x3a5d76, 1));
+    yesBtn.on("pointerout", () => yesBtn.setFillStyle(0x2a4255, 1));
+    yesBtn.on("pointerdown", (pointer) => {
+      if (!pointer.leftButtonDown()) return;
+      cleanupConfirmation();
+      this.skipTutorialCinematic();
+    });
+
+    noBtn.on("pointerover", () => noBtn.setFillStyle(0x3a5d76, 1));
+    noBtn.on("pointerout", () => noBtn.setFillStyle(0x2a4255, 1));
+    noBtn.on("pointerdown", (pointer) => {
+      if (!pointer.leftButtonDown()) return;
+      cleanupConfirmation();
+    });
+  }
+
+  skipTutorialCinematic() {
+    // Stop all tweens and timers related to the cinematic
+    this.tweens.killAll();
+    this.time.removeAllEvents();
+
+    // Destroy all cinematic and dialogue elements
+    this.destroyTutorialDialogue();
+    this.destroyTutorialLoreModal();
+    if (this.tutorialSkipButton) {
+      this.tutorialSkipButton.destroy();
+      this.tutorialSkipButton = null;
+    }
+
+    // Transition to main menu
+    const { width, height } = this.scale;
+    const blackVeil = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0).setDepth(800);
+    this.tweens.add({
+      targets: blackVeil,
+      alpha: 1,
+      duration: 500,
+      onComplete: () => {
+        this.stopGameplayAudio();
+        this.scene.start("MainMenuScene");
+      }
+    });
+  }
+
+  showTutorialGuardianArrivalSequence() {
+    const { width, height } = this.scale;
+    const bgKey = this.textures.exists("tutorialLoreHall") ? "tutorialLoreHall" : "bgHuman";
+    const guardianKey = this.textures.exists("tutorialGuardian") ? "tutorialGuardian" : "propIceBlock";
+
+    const sceneBg = this.add.image(width * 0.5, height * 0.5, bgKey).setDepth(560);
+    sceneBg.setDisplaySize(width, height);
+    sceneBg.setAlpha(1);
+
+    // Add SKIP button during cinematic
+    this.showTutorialSkipButton();
+
+    const topBar = this.add.rectangle(width * 0.5, 46, width, 92, 0x050b18, 1).setDepth(561).setAlpha(0);
+    const bottomBar = this.add.rectangle(width * 0.5, height - 95, width, 190, 0x050b18, 1).setDepth(561).setAlpha(0);
+
+    const quakeFlash = this.add.rectangle(width * 0.5, height * 0.5, width, height, 0xffffff, 0).setDepth(562);
+
+    const guardian = this.add.image(width * 0.5, height * 0.58, guardianKey).setDepth(560).setAlpha(0).setScale(0.86);
+    if (guardianKey === "tutorialGuardian") {
+      const source = guardian.texture.getSourceImage();
+      const w = source && source.width ? source.width : 760;
+      const h = source && source.height ? source.height : 960;
+      const ratio = Math.min(440 / w, 360 / h);
+      guardian.setScale(ratio * 0.95);
+    }
+    guardian.setData("baseX", guardian.x);
+    guardian.setData("baseY", guardian.y);
+    guardian.setData("baseScaleX", guardian.scaleX);
+    guardian.setData("baseScaleY", guardian.scaleY);
+
+    const introText = this.add
+      .text(width * 0.5, height * 0.5, "THE HALL TREMBLES...", {
+        fontFamily: "Yoster",
+        fontSize: "18px",
+        color: "#f0f3f7",
+        stroke: "#000000",
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5)
+      .setDepth(564)
+      .setAlpha(0);
+
+    this.tutorialCinematicElements = [sceneBg, topBar, bottomBar, quakeFlash, guardian, introText];
+    this.tutorialCinematicGuardian = guardian;
+
+    this.tweens.add({
+      targets: introText,
+      alpha: 1,
+      duration: 360,
+      ease: "Sine.easeOut",
+      onComplete: () => {
+        this.time.delayedCall(820, () => {
+          this.tweens.add({
+            targets: introText,
+            alpha: 0,
+            duration: 280,
+            ease: "Sine.easeInOut",
+            onComplete: () => {
+              this.cameras.main.shake(920, 0.0036);
+              this.playTutorialGuardianRumbleCue();
+
+              this.tweens.add({
+                targets: quakeFlash,
+                alpha: 0.22,
+                duration: 120,
+                yoyo: true,
+                repeat: 2,
+                ease: "Sine.easeInOut",
+              });
+
+              this.tweens.add({
+                targets: [guardian, topBar, bottomBar],
+                alpha: 1,
+                duration: 760,
+                ease: "Sine.easeOut",
+              });
+
+              this.tweens.add({
+                targets: guardian,
+                scaleX: guardian.scaleX * 1.05,
+                scaleY: guardian.scaleY * 1.05,
+                duration: 760,
+                ease: "Cubic.easeOut",
+              });
+
+              this.startGuardianDustEffect();
+
+              this.time.delayedCall(900, () => {
+                this.showGuardianQuestionChoices();
+              });
+            },
+          });
+        });
+      },
+    });
+  }
+
+  showGuardianQuestionChoices() {
+    const { width, height } = this.scale;
+
+    const prompt = this.add
+      .text(width * 0.5, height - 160, "AN UNKNOWN ENTITY APPEARED RIGHT INFRONT OF YOU.", {
+        fontFamily: "Yoster",
+        fontSize: "18px",
+        color: "#f0f3f7",
+        stroke: "#000000",
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5)
+      .setDepth(565)
+      .setAlpha(0);
+
+    const whereButton = this.add.rectangle(width * 0.5, height - 118, 420, 26, 0x21122a, 1).setDepth(565);
+    whereButton.setStrokeStyle(2, 0xbd4c61, 1);
+    const whereText = this.add
+      .text(width * 0.5, height - 118, "WHERE AM I?", {
+        fontFamily: "Yoster",
+        fontSize: "13px",
+        color: "#f4d8de",
+      })
+      .setOrigin(0.5)
+      .setDepth(566)
+      .setAlpha(0);
+
+    const whoButton = this.add.rectangle(width * 0.5, height - 82, 420, 26, 0x21122a, 1).setDepth(565);
+    whoButton.setStrokeStyle(2, 0xbd4c61, 1);
+    const whoText = this.add
+      .text(width * 0.5, height - 82, "WHO ARE YOU?", {
+        fontFamily: "Yoster",
+        fontSize: "13px",
+        color: "#f4d8de",
+      })
+      .setOrigin(0.5)
+      .setDepth(566)
+      .setAlpha(0);
+
+    [whereButton, whoButton].forEach((btn) => {
+      btn.setAlpha(0);
+      btn.setInteractive({ useHandCursor: true });
+      btn.on("pointerover", () => btn.setFillStyle(0x311934, 1));
+      btn.on("pointerout", () => btn.setFillStyle(0x21122a, 1));
+    });
+
+    const lockChoicesAndContinue = (choice) => {
+      whereButton.disableInteractive();
+      whoButton.disableInteractive();
+      this.tutorialSelectedQuestion = choice;
+
+      const choiceNodes = [prompt, whereButton, whereText, whoButton, whoText];
+      this.tweens.add({
+        targets: choiceNodes,
+        alpha: 0,
+        duration: 180,
+        ease: "Sine.easeInOut",
+        onComplete: () => {
+          choiceNodes.forEach((node) => {
+            if (node && node.active) {
+              node.destroy();
+            }
+          });
+          this.startTutorialDialogueSequence(choice);
+        },
+      });
+    };
+
+    whereButton.on("pointerdown", (pointer) => {
+      lockChoicesAndContinue("where");
+    });
+
+    whoButton.on("pointerdown", (pointer) => {
+      lockChoicesAndContinue("who");
+    });
+
+    this.tweens.add({
+      targets: [prompt, whereButton, whereText, whoButton, whoText],
+      alpha: 1,
+      duration: 240,
+      ease: "Sine.easeOut",
+    });
+
+    this.tutorialCinematicElements.push(prompt, whereButton, whereText, whoButton, whoText);
+  }
+
+  startGuardianDustEffect() {
+    if (!this.tutorialCinematicGuardian || !this.tutorialCinematicGuardian.active) {
+      return;
+    }
+
+    this.stopGuardianDustEffect();
+
+    const spawnDust = (frontLayer) => {
+      if (!this.tutorialCinematicGuardian || !this.tutorialCinematicGuardian.active) {
+        return;
+      }
+
+      const g = this.tutorialCinematicGuardian;
+      const x = g.x + Phaser.Math.Between(-150, 150);
+      const y = g.y + Phaser.Math.Between(-110, 90);
+      const size = Phaser.Math.Between(1, 2);
+      const alpha = frontLayer ? Phaser.Math.FloatBetween(0.16, 0.24) : Phaser.Math.FloatBetween(0.08, 0.16);
+      const depth = frontLayer ? 560.4 : 559.6;
+
+      const dust = this.add.rectangle(x, y, size, size, 0xe7eef7, alpha).setDepth(depth);
+      this.tutorialCinematicElements.push(dust);
+
+      this.tweens.add({
+        targets: dust,
+        y: y - Phaser.Math.Between(10, 24),
+        x: x + Phaser.Math.Between(-8, 8),
+        alpha: 0,
+        duration: Phaser.Math.Between(900, 1500),
+        ease: "Sine.easeOut",
+        onComplete: () => {
+          if (dust && dust.active) {
+            dust.destroy();
+          }
+        },
+      });
+    };
+
+    const backEvent = this.time.addEvent({
+      delay: 170,
+      loop: true,
+      callback: () => spawnDust(false),
+    });
+
+    const frontEvent = this.time.addEvent({
+      delay: 240,
+      loop: true,
+      callback: () => spawnDust(true),
+    });
+
+    this.tutorialDustEvents = [backEvent, frontEvent];
+  }
+
+  stopGuardianDustEffect() {
+    this.tutorialDustEvents.forEach((event) => {
+      if (event) {
+        event.remove(false);
+      }
+    });
+    this.tutorialDustEvents = [];
+  }
+
+  startTutorialDialogueSequence(choice = "where") {
+    this.tutorialDialoguePhase = "branch";
+    this.tutorialDialogueScript = this.buildDialogueScriptForChoice(choice);
+
+    this.tutorialDialogueIndex = 0;
+    this.showTutorialDialogueUI();
+    this.showCurrentDialogueLine();
+  }
+
+  buildDialogueScriptForChoice(choice) {
+    return [
+      {
+        speaker: "MAVHAL",
+        key: "tutorialGuardian",
+        text: "You seek definitions where none remain. You stand in the Threshold—the hall where the old life is washed away to make room for the new. And I? I am the Warden, the hand that turns the wheel when a soul has reached its rim.",
+        triggerSpark: true,
+      },
+      {
+        speaker: "YOU",
+        key: "student2",
+        text: "The Threshold? The Warden? I don't understand... you talk like my life is just a task you're trying to finish. I'm a person, I have a name! You can't just decide where I go!",
+      },
+      {
+        speaker: "MAVHAL",
+        key: "tutorialGuardian",
+        text: "Your name is a memory fading in a storm. I do not invent your fate; I simply read the weight of your soul. You have spent your life drifting, searching for a foundation. Now, your soul seeks a place of quiet utility... a vessel that does not wander.",
+      },
+      {
+        speaker: "YOU",
+        key: "student2",
+        text: "A vessel? Don't do this! I'm not ready for this... 'utility.' Just give me another chance, let me go back to how things were!",
+      },
+      {
+        speaker: "MAVHAL",
+        key: "tutorialGuardian",
+        text: "Your heart beats with a frantic rhythm, clinging to a world that has already let you go. It is a waste of spirit. There is no path backward; the scales have tipped.",
+      },
+      {
+        speaker: "YOU",
+        key: "student2",
+        text: "Then tell me what's happening! If you've already decided, at least have the decency to tell me what I'm becoming!",
+      },
+      {
+        speaker: "MAVHAL",
+        key: "tutorialGuardian",
+        text: "I have found the stability you lacked. You will be a pillar for others. You will stand tall in the path of the weary, providing for those who pass by, asking for nothing in return but to be of use. No more running. No more fear. Only the stillness of service.",
+      },
+      {
+        speaker: "YOU",
+        key: "student2",
+        text: "Stability? Standing in a path? I don't... I don't like the sound of that. Answer me! What am I?!",
+      },
+      {
+        speaker: "MAVHAL",
+        key: "tutorialGuardian",
+        text: "You are exactly what you need to be. The light is fading; the transformation begins now.",
+      },
+      {
+        speaker: "",
+        key: "tutorialGuardian",
+        text: "A sudden, paralyzing cold spreads from your feet upward. You try to scream, but your jaw feels heavy, then solid, then completely frozen. You try to look down, but your neck won't turn; you are locked in a rigid, upright gaze.",
+      },
+    ];
+  }
+
+  playBlurToBlackThenEnterMachineScene() {
+    const { width, height } = this.scale;
+    const sceneBg = this.tutorialCinematicElements[0];
+    const topBar = this.tutorialCinematicElements[1];
+    const bottomBar = this.tutorialCinematicElements[2];
+    const guardian = this.tutorialCinematicGuardian;
+
+    const blurVeil = this.add.rectangle(width * 0.5, height * 0.5, width, height, 0xdfe9f7, 0).setDepth(567);
+    const blackVeil = this.add.rectangle(width * 0.5, height * 0.5, width, height, 0x000000, 0).setDepth(568);
+    this.tutorialCinematicElements.push(blurVeil, blackVeil);
+
+    if (guardian && guardian.active) {
+      this.tweens.killTweensOf(guardian);
+    }
+
+    // Blur effect — slowly fade a white haze over the scene
+    this.tweens.add({
+      targets: blurVeil,
+      alpha: 0.55,
+      duration: 800,
+      ease: "Sine.easeIn",
+    });
+
+    this.time.delayedCall(500, () => {
+      // Fade to full black
+      this.tweens.add({
+        targets: blackVeil,
+        alpha: 1,
+        duration: 1000,
+        ease: "Cubic.easeIn",
+        onComplete: () => {
+          // Remove all cinematic elements except sceneBg (index 0)
+          // sceneBg will be destroyed separately after we no longer need it
+          this.stopGuardianDustEffect();
+
+          this.tutorialCinematicElements.forEach((el) => {
+            if (el && el.active) {
+              el.destroy();
+            }
+          });
+          this.tutorialCinematicElements = [];
+          this.tutorialCinematicGuardian = null;
+
+          this.tutorialDialogueElements.forEach((el) => {
+            if (el && el.active) {
+              el.destroy();
+            }
+          });
+          this.tutorialDialogueElements = [];
+          this.dialogueTapAction = null;
+
+          if (this.tutorialTapHintTween) {
+            this.tutorialTapHintTween.remove();
+            this.tutorialTapHintTween = null;
+          }
+
+          // Create a new fade-out black veil on top
+          const fadeOut = this.add.rectangle(width * 0.5, height * 0.5, width, height, 0x000000, 1).setDepth(900);
+
+          this.tweens.add({
+            targets: fadeOut,
+            alpha: 0,
+            duration: 800,
+            delay: 300,
+            ease: "Sine.easeOut",
+            onComplete: () => {
+              if (fadeOut && fadeOut.active) {
+                fadeOut.destroy();
+              }
+              this.tutorialInputLocked = true;
+              this.appendTutorialNotification("REINCARNATION COMPLETE. INTRO TUTORIALS BEGIN.");
+              this.setMessage("Learn the basics first: Ice Core, then burst thresholds.", "#a8ffd1");
+              this.updateTutorialGuide();
+              this.showInitialTutorialPopups();
+            },
+          });
+        },
+      });
+    });
+  }
+
+  showTutorialDialogueUI() {
+    const { width, height } = this.scale;
+    const speaker = this.add
+      .text(width * 0.5, height - 145, "", {
+        fontFamily: "Yoster",
+        fontSize: "18px",
+        color: "#e56a74",
+      })
+      .setOrigin(0.5)
+      .setDepth(561);
+
+    const dialogue = this.add
+      .text(width * 0.5, height - 113, "", {
+        fontFamily: "Yoster",
+        fontSize: "14px",
+        color: "#f0f3f7",
+        align: "center",
+        wordWrap: { width: width - 180 },
+        lineSpacing: 4,
+      })
+      .setOrigin(0.5, 0)
+      .setDepth(561);
+
+    const tapHint = this.add
+      .text(width - 20, height - 14, "TAP THE SCREEN TO CONTINUE", {
+        fontFamily: "Yoster",
+        fontSize: "12px",
+        color: "#95a0ad",
+      })
+      .setOrigin(1, 1)
+      .setDepth(562);
+
+    const tapZone = this.add.rectangle(width * 0.5, height * 0.5, width, height, 0x000000, 0).setDepth(560);
+    tapZone.setInteractive({ useHandCursor: true });
+    this.dialogueTapAction = () => this.advanceTutorialDialogue();
+    tapZone.on("pointerdown", (pointer, localX, localY, event) => {
+      if (event && typeof event.stopPropagation === "function") {
+        event.stopPropagation();
+      }
+      this.advanceTutorialDialogue();
+    });
+
+    if (this.tutorialTapHintTween) {
+      this.tutorialTapHintTween.remove();
+      this.tutorialTapHintTween = null;
+    }
+
+    this.tutorialTapHintTween = this.tweens.add({
+      targets: tapHint,
+      alpha: { from: 0.32, to: 0.75 },
+      duration: 820,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
+
+    this.tutorialDialogueElements = [speaker, dialogue, tapHint, tapZone];
+  }
+
+  showCurrentDialogueLine() {
+    const line = this.tutorialDialogueScript[this.tutorialDialogueIndex];
+    if (!line || this.tutorialDialogueElements.length < 4) {
+      return;
+    }
+
+    const speaker = this.tutorialDialogueElements[0];
+    const dialogue = this.tutorialDialogueElements[1];
+    const tapHint = this.tutorialDialogueElements[2];
+
+    speaker.setText(line.speaker ? `• ${String(line.speaker).toUpperCase()} •` : "");
+    dialogue.setText((line.text || "").toUpperCase());
+    if (tapHint) {
+      tapHint.setText(
+        this.tutorialDialogueIndex >= this.tutorialDialogueScript.length - 1
+          ? "TAP THE SCREEN TO START TUTORIAL"
+          : "TAP THE SCREEN TO CONTINUE",
+      );
+    }
+
+    if (this.tutorialCinematicGuardian && this.tutorialCinematicGuardian.active) {
+      if (line.speaker === "YOU") {
+        this.tutorialCinematicGuardian.setAlpha(0.72);
+      } else {
+        this.tutorialCinematicGuardian.setAlpha(1);
+        if (line.key && this.textures.exists(line.key)) {
+          this.tutorialCinematicGuardian.setTexture(line.key);
+        }
+      }
+    }
+
+    this.playDialogueSpeakerMotion(line);
+
+    if (line.triggerSpark && !this.tutorialSparkTriggered) {
+      this.tutorialSparkTriggered = true;
+      this.triggerLeftSparkOverloadEffect();
+      this.appendTutorialNotification("Alert: Overheat sparks detected on the left rails.");
+    }
+  }
+
+  playDialogueSpeakerMotion(line) {
+    if (!this.tutorialCinematicGuardian || !this.tutorialCinematicGuardian.active) {
+      return;
+    }
+
+    const guardian = this.tutorialCinematicGuardian;
+    const baseX = guardian.getData("baseX") ?? guardian.x;
+    const baseY = guardian.getData("baseY") ?? guardian.y;
+    const baseScaleX = guardian.getData("baseScaleX") ?? guardian.scaleX;
+    const baseScaleY = guardian.getData("baseScaleY") ?? guardian.scaleY;
+
+    this.tweens.killTweensOf(guardian);
+    guardian.setPosition(baseX, baseY).setScale(baseScaleX, baseScaleY);
+
+    if (line.speaker === "MAVHAL" || line.speaker === "GUARDIAN MAVHAL" || line.speaker === "MACHINE ENTITY") {
+      this.tweens.add({
+        targets: guardian,
+        y: baseY - 3,
+        scaleX: baseScaleX * 1.01,
+        scaleY: baseScaleY * 1.01,
+        duration: 150,
+        yoyo: true,
+        repeat: 2,
+        ease: "Sine.easeInOut",
+        onComplete: () => {
+          if (guardian && guardian.active) {
+            guardian.setPosition(baseX, baseY).setScale(baseScaleX, baseScaleY);
+          }
+        },
+      });
+      return;
+    }
+
+    this.tweens.add({
+      targets: guardian,
+      y: baseY + 1,
+      duration: 180,
+      yoyo: true,
+      ease: "Sine.easeInOut",
+      onComplete: () => {
+        if (guardian && guardian.active) {
+          guardian.setPosition(baseX, baseY).setScale(baseScaleX, baseScaleY);
+        }
+      },
+    });
+  }
+
+  advanceTutorialDialogue() {
+    this.tutorialDialogueIndex += 1;
+    if (this.tutorialDialogueIndex >= this.tutorialDialogueScript.length) {
+      if (this.tutorialDialoguePhase === "branch") {
+        this.dialogueTapAction = null;
+        if (this.tutorialTapHintTween) {
+          this.tutorialTapHintTween.remove();
+          this.tutorialTapHintTween = null;
+        }
+        this.tutorialDialogueElements.forEach((element) => {
+          if (element && element.active) {
+            element.destroy();
+          }
+        });
+        this.tutorialDialogueElements = [];
+        this.playBlurToBlackThenEnterMachineScene();
+        return;
+      }
+
+      this.destroyTutorialDialogue();
+      this.tutorialInputLocked = false;
+      this.appendTutorialNotification("DIALOGUE COMPLETE. TUTORIAL CONTROLS UNLOCKED.");
+      const openingPrompt = "Try swiping the screen or pressing the D-PAD to slide the items.";
+      this.setMessage(openingPrompt, "#a8ffd1");
+      this.updateTutorialGuide();
+      return;
+    }
+
+    this.showCurrentDialogueLine();
+  }
+
+  destroyTutorialDialogue() {
+    this.dialogueTapAction = null;
+    this.stopGuardianDustEffect();
+
+    if (this.tutorialTapHintTween) {
+      this.tutorialTapHintTween.remove();
+      this.tutorialTapHintTween = null;
+    }
+
+    const overlayElements = [...this.tutorialDialogueElements, ...this.tutorialCinematicElements].filter(
+      (element, index, arr) => element && element.active && arr.indexOf(element) === index,
+    );
+
+    if (!overlayElements.length) {
+      this.tutorialDialogueElements = [];
+      this.tutorialCinematicElements = [];
+      this.tutorialCinematicGuardian = null;
+      return;
+    }
+
+    this.tweens.add({
+      targets: overlayElements,
+      alpha: 0,
+      duration: 420,
+      ease: "Sine.easeInOut",
+      onComplete: () => {
+        overlayElements.forEach((element) => {
+          if (element && element.active) {
+            element.destroy();
+          }
+        });
+        this.tutorialDialogueElements = [];
+        this.tutorialCinematicElements = [];
+        this.tutorialCinematicGuardian = null;
+      },
+    });
+  }
+
+  triggerLeftSparkOverloadEffect() {
+    const burstX = 54;
+    const burstY = 230;
+
+    for (let i = 0; i < 34; i += 1) {
+      const spark = this.add
+        .rectangle(burstX, burstY, Phaser.Math.Between(2, 4), Phaser.Math.Between(2, 4), i % 3 === 0 ? 0xffd65a : 0x9fe7ff)
+        .setDepth(565);
+
+      const angle = Phaser.Math.FloatBetween(-Math.PI * 0.8, Math.PI * 0.8);
+      const speed = Phaser.Math.FloatBetween(38, 130);
+
+      this.tweens.add({
+        targets: spark,
+        x: burstX + Math.cos(angle) * speed,
+        y: burstY + Math.sin(angle) * speed,
+        alpha: 0,
+        duration: Phaser.Math.Between(240, 540),
+        ease: "Quad.easeOut",
+        onComplete: () => {
+          spark.destroy();
+        },
+      });
+    }
+
+    this.cameras.main.shake(220, 0.0022);
+    this.playSfx("eventSfx", { volume: 0.42 });
+  }
+
+  appendTutorialNotification(text) {
+    this.tutorialNotificationLines.push(`- ${text}`);
+    if (this.tutorialNotificationLines.length > 5) {
+      this.tutorialNotificationLines.shift();
+    }
+
+    if (this.tutorialNotificationText) {
+      this.tutorialNotificationText.setText(this.tutorialNotificationLines.join("\n"));
+    }
+  }
+
+  showTutorialLoreModal() {
+    const { width, height } = this.scale;
+    const lorePages = [
+      "You were once a student surviving summer heat.\nA single cold drink was all you wanted.",
+      "Now reincarnated as a vending machine,\nyou must keep your ice core alive and serve smart combos.",
+      "Tutorial mission:\nlearn movement, merging, and survival flow before the real run.",
+    ];
+    let loreIndex = 0;
+
+    const overlay = this.add.rectangle(width * 0.5, height * 0.5, width, height, 0x000000, 0.75).setDepth(600);
+    const panel = this.add.rectangle(width * 0.5, height * 0.5, 620, 310, 0x112433, 0.96).setDepth(601);
+    panel.setStrokeStyle(3, 0x9cc9ee, 1);
+
+    const title = this.add
+      .text(width * 0.5, height * 0.5 - 118, "TUTORIAL LORE", {
+        fontFamily: "Yoster",
+        fontSize: "24px",
+        color: "#eaf7ff",
+      })
+      .setOrigin(0.5)
+      .setDepth(602);
+
+    const body = this.add
+      .text(width * 0.5, height * 0.5 - 24, lorePages[loreIndex], {
+        fontFamily: "Yoster",
+        fontSize: "16px",
+        color: "#d2e6f7",
+        align: "center",
+        lineSpacing: 4,
+      })
+      .setOrigin(0.5)
+      .setDepth(602);
+
+    const pageText = this.add
+      .text(width * 0.5, height * 0.5 + 76, "1 / 3", {
+        fontFamily: "Yoster",
+        fontSize: "13px",
+        color: "#9fc2dd",
+      })
+      .setOrigin(0.5)
+      .setDepth(602);
+
+    const nextButton = this.add.rectangle(width * 0.5, height * 0.5 + 122, 180, 38, 0x2a4255, 1).setDepth(602);
+    nextButton.setStrokeStyle(2, 0x7fabca, 1);
+    const nextText = this.add
+      .text(width * 0.5, height * 0.5 + 122, "NEXT", {
+        fontFamily: "Yoster",
+        fontSize: "14px",
+        color: "#eaf4ff",
+      })
+      .setOrigin(0.5)
+      .setDepth(603);
+
+    nextButton.setInteractive({ useHandCursor: true });
+    nextButton.on("pointerover", () => nextButton.setFillStyle(0x3a5d76, 1));
+    nextButton.on("pointerout", () => nextButton.setFillStyle(0x2a4255, 1));
+    nextButton.on("pointerdown", (pointer) => {
+      if (!pointer.leftButtonDown()) {
+        return;
+      }
+
+      loreIndex += 1;
+      if (loreIndex >= lorePages.length) {
+        this.destroyTutorialLoreModal();
+        this.tutorialInputLocked = false;
+        this.setMessage("Tutorial started. Make your first move.", "#a8ffd1");
+        this.updateTutorialGuide();
+        return;
+      }
+
+      body.setText(lorePages[loreIndex]);
+      pageText.setText(`${loreIndex + 1} / ${lorePages.length}`);
+      if (loreIndex === lorePages.length - 1) {
+        nextText.setText("BEGIN TUTORIAL");
+      }
+    });
+
+    this.tutorialLoreElements = [overlay, panel, title, body, pageText, nextButton, nextText];
+  }
+
+  destroyTutorialLoreModal() {
+    this.tutorialLoreElements.forEach((element) => {
+      if (element && element.active) {
+        element.destroy();
+      }
+    });
+    this.tutorialLoreElements = [];
+  }
+
+  updateTutorialGuide() {
+    if (!this.tutorialGuideText || !this.tutorialGuideSubText) {
+      return;
+    }
+
+    if (this.tutorialInputLocked && this.activeTutorialTipMeta) {
+      this.tutorialGuideText.setText(this.activeTutorialTipMeta.title);
+      this.tutorialGuideSubText.setText(this.activeTutorialTipMeta.sub);
+      return;
+    }
+
+    const steps = [
+      { title: "KNOW THE BASICS", sub: "Start with one simple move, watch new tiles spawn each turn, merge matching drinks to build charge, and avoid no-merge moves because they drain Ice Core." },
+      { title: "KNOW THE BASICS", sub: "Try swiping the screen or pressing the D-PAD to make items slide." },
+      { title: "KNOW THE BASICS", sub: "Make 2 more moves. Notice: a new tile spawns each turn!" },
+      { title: "KNOW THE BASICS", sub: "Slide same-type drinks into each other to merge them. Watch the charge bar fill!" },
+      { title: "KNOW THE BASICS", sub: "Keep merging until a drink's charge bar is full. It will burst and activate a special power!" },
+      { title: "KNOW THE BASICS", sub: "Item passives shape your strategy. Water, Cola, Juice, Tea, and Coffee all behave differently when charged or active." },
+      { title: "KNOW THE BASICS", sub: "Coffee spreads every 3 turns while present. After this tip, coffee can spawn naturally, so control it early." },
+      { title: "KNOW THE BASICS", sub: "Follow the highlighted arrow - it shows the direction with the most merges!" },
+      { title: "KNOW THE BASICS", sub: "Trigger 2+ bursts in one turn for a combo bonus! More types = bigger bonus." },
+      { title: "KNOW THE BASICS", sub: "You've mastered the basics! Keep practicing or press SKIP." },
+    ];
+
+    if (this.tutorialInputLocked) {
+      this.tutorialGuideText.setText(steps[0].title);
+      this.tutorialGuideSubText.setText(steps[0].sub);
+      return;
+    }
+
+    const idx = Math.min(this.tutorialStepIndex + 1, steps.length - 1);
+    this.tutorialGuideText.setText(steps[idx].title);
+    this.tutorialGuideSubText.setText(steps[idx].sub);
+  }
+
+  updateTutorialProgress(result) {
+    if (!this.tutorialMode || this.tutorialInputLocked || this.tutorialGuideComplete) {
+      return;
+    }
+
+    this.tutorialStats.moves += 1;
+    this.tutorialStats.merges += result.merges.length;
+    this.clearTutorialHighlights();
+
+    // Step 0 → 1 (First Move → Board Layout)
+    if (this.tutorialStepIndex === 0 && this.tutorialStats.moves >= 1) {
+      this.tutorialStepIndex = 1;
+      this.appendTutorialNotification("Step clear: first move detected!");
+      this.setMessage("Good! Tiles slide and a new tile spawns. Make 2 more moves.", "#a8ffd1");
+      this.updateTutorialGuide();
+      return;
+    }
+
+    // Step 1 → 2 (Board Layout → First Merge)
+    if (this.tutorialStepIndex === 1 && this.tutorialStats.moves >= 3) {
+      this.tutorialStepIndex = 2;
+      this.showTutorialTip("MERGES", "When same drinks collide, they merge!\nThe charge bar fills up.", this.scale.width * 0.5, this.scale.height * 0.5);
+      this.appendTutorialNotification("Step clear: board basics understood.");
+      this.setMessage("Now merge! Slide same drinks into each other.", "#a8ffd1");
+      this.updateTutorialGuide();
+      this.highlightBestMove();
+      return;
+    }
+
+    // Step 2 → 3 (First Merge → Burst Threshold)
+    if (this.tutorialStepIndex === 2 && this.tutorialStats.merges >= 1) {
+      this.tutorialStepIndex = 3;
+      this.appendTutorialNotification("Step clear: first merge confirmed!");
+      this.setMessage("Great merge! The burst threshold guide shows what each item needs.", "#a8ffd1");
+      this.updateTutorialGuide();
+      this.highlightBestMove();
+      return;
+    }
+
+    // Step 3 → 4 (Burst Threshold → Ice Core Awareness)
+    if (this.tutorialStepIndex === 3 && this.tutorialFirstBurstSeen) {
+      this.tutorialStepIndex = 4;
+      this.showTutorialTip(
+        "ITEM PASSIVES",
+        "Every item has a unique passive effect.\nWater supports core sustain, Cola blasts neighbors,\nand Tea reshapes the board for new setups.",
+        this.scale.width * 0.73,
+        322,
+      );
+      this.appendTutorialNotification("Step clear: Freshen Up activated!");
+      this.setMessage("You triggered Freshen Up! Learn each item's passive to plan stronger turns.", "#a8ffd1");
+      this.updateTutorialGuide();
+      return;
+    }
+
+    // Step 4 → 5 (Ice Core Awareness → Coffee Warning)
+    if (this.tutorialStepIndex === 4 && this.iceCore < this.tutorialStartingIceCore) {
+      this.tutorialStepIndex = 5;
+      this.showTutorialTip(
+        "COFFEE",
+        "Coffee spreads every 3 turns while active.\nBurst it (charge 2) to gain +1 Ice Core.\nCoffee starts spawning only after this tutorial tip.",
+        this.scale.width * 0.5,
+        this.scale.height * 0.5,
+      );
+      this.appendTutorialNotification("Step clear: Ice Core decay observed.");
+      this.setMessage("Ice Core is melting! Watch out for coffee.", "#ffb8a5");
+      this.updateTutorialGuide();
+      return;
+    }
+
+    // Step 5 → 6 (Coffee Warning → Best Move Highlight)
+    if (this.tutorialStepIndex === 5) {
+      let hasCoffee = false;
+      for (let y = 0; y < this.gridSize; y++) {
+        for (let x = 0; x < this.gridSize; x++) {
+          if (this.board[y][x] && this.board[y][x].type === "coffee") {
+            hasCoffee = true;
+          }
+        }
+      }
+      if (hasCoffee && !this.tutorialCoffeeSeen) {
+        this.tutorialCoffeeSeen = true;
+        this.tutorialStepIndex = 6;
+        this.appendTutorialNotification("Step clear: Coffee spotted on the board!");
+        this.setMessage("Coffee detected! Follow the highlighted move.", "#ddc0aa");
+        this.updateTutorialGuide();
+        this.highlightBestMove();
+        return;
+      }
+      // Auto-advance
+      if (this.tutorialStats.moves >= 12 && !hasCoffee) {
+        this.tutorialStepIndex = 6;
+        this.appendTutorialNotification("Step auto-advance: Coffee awareness noted.");
+        this.setMessage("Follow the highlighted move to maximize merges!", "#ddc0aa");
+        this.updateTutorialGuide();
+        this.highlightBestMove();
+        return;
+      }
+    }
+
+    // Step 6 → 7 (Best Move Highlight → Combo Chains)
+    if (this.tutorialStepIndex === 6 && !this.tutorialBestMoveFollowed) {
+      this.highlightBestMove();
+      return;
+    }
+
+    if (this.tutorialStepIndex === 6 && this.tutorialBestMoveFollowed) {
+      this.tutorialStepIndex = 7;
+      this.showTutorialTip("COMBO CHAINS", "Multiple bursts in one turn = combo!\nTriggering multiple bursts gives huge points.\nPlan your merges carefully!");
+      this.appendTutorialNotification("Step clear: best move followed!");
+      this.setMessage("Smart move! Trigger 2+ bursts for a combo bonus.", "#a8ffd1");
+      this.updateTutorialGuide();
+      return;
+    }
+
+    // Step 7 → 8 (Combo Chains → Complete)
+    if (this.tutorialStepIndex === 7) {
+      if (this.tutorialComboSeen) {
+        this.tutorialStepIndex = 8;
+        this.appendTutorialNotification("Step clear: Combo chain triggered!");
+        this.setMessage("Amazing combo! You've completed the tutorial.", "#a8ffd1");
+        this.tutorialGuideComplete = true;
+        this.updateTutorialGuide();
+        return;
+      }
+      // Auto-advance
+      if (this.tutorialStats.moves >= 20) {
+        this.tutorialStepIndex = 8;
+        this.tutorialGuideComplete = true;
+        this.appendTutorialNotification("Tutorial complete! Ready for normal gameplay.");
+        this.setMessage("Tutorial complete. Keep practicing or press SKIP.", "#a8ffd1");
+        this.updateTutorialGuide();
+      }
+    }
+  }
+
+  // --- Best Move Highlight System ---
+
+  simulateSlideOnCopy(direction) {
+    // Deep copy the board to simulate without side effects
+    const boardCopy = this.board.map((row) =>
+      row.map((tile) => (tile ? { ...tile } : null)),
+    );
+    const freezeCopy = this.freezeTurns.map((row) => [...row]);
+
+    const dirMap = {
+      left: { dx: -1, dy: 0 },
+      right: { dx: 1, dy: 0 },
+      up: { dx: 0, dy: -1 },
+      down: { dx: 0, dy: 1 },
+    };
+
+    const { dx, dy } = dirMap[direction];
+    const order = this.getTraversalOrder(direction);
+    const merged = Array.from({ length: this.gridSize }, () =>
+      Array(this.gridSize).fill(false),
+    );
+
+    let moved = false;
+    const merges = [];
+
+    for (let step = 0; step < this.gridSize; step++) {
+      let passMoved = false;
+
+      order.forEach(({ x, y }) => {
+        const tile = boardCopy[y][x];
+        if (!tile || freezeCopy[y][x] > 0) return;
+
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || nx >= this.gridSize || ny < 0 || ny >= this.gridSize) return;
+
+        const next = boardCopy[ny][nx];
+
+        if (!next) {
+          boardCopy[ny][nx] = tile;
+          boardCopy[y][x] = null;
+          freezeCopy[ny][nx] = freezeCopy[y][x];
+          freezeCopy[y][x] = 0;
+          passMoved = true;
+          moved = true;
+          return;
+        }
+
+        if (merged[ny][nx]) return;
+
+        if (next.type === tile.type && tile.type !== "coffee" && freezeCopy[ny][nx] <= 0) {
+          boardCopy[ny][nx] = {
+            type: tile.type,
+            tier: Math.max(next.tier, tile.tier) + Math.min(next.tier, tile.tier),
+            charge: Math.min(
+              this.getChargeCapForType(tile.type),
+              Math.max(next.charge || 0, tile.charge || 0) + 1,
+            ),
+          };
+          boardCopy[y][x] = null;
+          merged[ny][nx] = true;
+          merges.push({ type: tile.type, x: nx, y: ny });
+          passMoved = true;
+          moved = true;
+        }
+      });
+
+      if (!passMoved) break;
+    }
+
+    return { moved, merges };
+  }
+
+  highlightBestMove() {
+    this.clearTutorialHighlights();
+
+    const directions = ["up", "down", "left", "right"];
+    let bestDir = null;
+    let bestMerges = 0;
+
+    directions.forEach((dir) => {
+      const sim = this.simulateSlideOnCopy(dir);
+      if (sim.merges.length > bestMerges) {
+        bestMerges = sim.merges.length;
+        bestDir = dir;
+      }
+    });
+
+    if (!bestDir || bestMerges === 0) {
+      // No merges available in any direction, just pick any valid move
+      for (const dir of directions) {
+        const sim = this.simulateSlideOnCopy(dir);
+        if (sim.moved) {
+          bestDir = dir;
+          break;
+        }
+      }
+    }
+
+    if (!bestDir) return;
+
+    this.tutorialBestDirection = bestDir;
+
+    // Draw arrow indicators on the board
+    const boardCenterX = this.boardX + (this.gridSize * this.cellSize) / 2 - 4;
+    const boardCenterY = this.boardY + (this.gridSize * this.cellSize) / 2 - 4;
+
+    const arrowPositions = {
+      up: { x: boardCenterX, y: this.boardY - 18, angle: 0, label: "▲ SLIDE UP" },
+      down: { x: boardCenterX, y: this.boardY + this.gridSize * this.cellSize - 2, angle: 180, label: "▼ SLIDE DOWN" },
+      left: { x: this.boardX - 22, y: boardCenterY, angle: 270, label: "◄ LEFT" },
+      right: { x: this.boardX + this.gridSize * this.cellSize, y: boardCenterY, angle: 90, label: "► RIGHT" },
+    };
+
+    const pos = arrowPositions[bestDir];
+
+    // Glowing arrow background
+    const arrowBg = this.add
+      .rectangle(pos.x, pos.y, bestDir === "left" || bestDir === "right" ? 28 : 160, bestDir === "left" || bestDir === "right" ? 160 : 28, 0x33ff88, 0.15)
+      .setDepth(200);
+    this.tutorialHighlightElements.push(arrowBg);
+
+    // Arrow text
+    const arrowText = this.add
+      .text(pos.x, pos.y, pos.label, {
+        fontFamily: "Yoster",
+        fontSize: "13px",
+        color: "#33ff88",
+        stroke: "#000000",
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5)
+      .setDepth(201);
+    this.tutorialHighlightElements.push(arrowText);
+
+    // Merge count badge
+    if (bestMerges > 0) {
+      const mergeLabel = this.add
+        .text(pos.x, pos.y + (bestDir === "up" ? -14 : bestDir === "down" ? 14 : 0), `${bestMerges} merge${bestMerges > 1 ? "s" : ""}!`, {
+          fontFamily: "Yoster",
+          fontSize: "10px",
+          color: "#ffe59b",
+          stroke: "#000000",
+          strokeThickness: 2,
+        })
+        .setOrigin(0.5)
+        .setDepth(202);
+      this.tutorialHighlightElements.push(mergeLabel);
+    }
+
+    // Pulsing animation on the arrow
+    this.tweens.add({
+      targets: [arrowBg, arrowText],
+      alpha: { from: 0.5, to: 1 },
+      duration: 600,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
+  }
+
+  clearTutorialHighlights() {
+    this.tutorialHighlightElements.forEach((el) => {
+      if (el && el.active) {
+        this.tweens.killTweensOf(el);
+        el.destroy();
+      }
+    });
+    this.tutorialHighlightElements = [];
+  }
+
+  getTutorialGuideMetaForTip(title, body) {
+    const normalizedTitle = (title || "").trim().toUpperCase();
+    const guideMetaByTipTitle = {
+      "ICE CORE": {
+        title: "KNOW THE BASICS",
+        sub: "Ice Core is your health pool. Plan moves to create merges often, because sliding without a merge costs 1 Ice Core and can quickly end the run.",
+      },
+      "BURST THRESHOLDS": {
+        title: "KNOW THE BASICS",
+        sub: "Each item type has a burst requirement. Keep merging the same drink to reach its threshold, then trigger the burst at the right moment for board control.",
+      },
+      "MERGES": {
+        title: "KNOW THE BASICS",
+        sub: "Merging identical drinks is the core loop. Every merge strengthens tiles and builds charge toward burst skills that can swing difficult turns.",
+      },
+      "BURSTS": {
+        title: "KNOW THE BASICS",
+        sub: "A full charge triggers a burst skill. Time bursts to clear pressure, recover control, and set up stronger follow-up merges.",
+      },
+      "ITEM PASSIVES": {
+        title: "KNOW THE BASICS",
+        sub: "Item passives define advanced play. Water supports survival, Cola bursts nearby tiles, Juice boosts neighbors, Tea reshapes groups, and Coffee spreads over time.",
+      },
+      "COFFEE": {
+        title: "KNOW THE BASICS",
+        sub: "Coffee spreads every 3 turns while present. It unlocks for spawning after this tutorial tip, and bursting coffee restores +1 Ice Core.",
+      },
+      "COMBO CHAINS": {
+        title: "KNOW THE BASICS",
+        sub: "Chain multiple bursts in one turn to earn combos and momentum. Build the board so one burst feeds into the next instead of spending charge separately.",
+      },
+    };
+
+    if (guideMetaByTipTitle[normalizedTitle]) {
+      return guideMetaByTipTitle[normalizedTitle];
+    }
+
+    return {
+      title: "KNOW THE BASICS",
+      sub: (body || "Follow the active tutorial dialogue to learn the current mechanic.").replace(/\n+/g, " "),
+    };
+  }
+
+  // --- Tutorial Tip Popup System ---
+
+  showTutorialTip(title, body, pointAtX, pointAtY, onDismiss = null) {
+    this.dismissTutorialTip();
+
+    const { width, height } = this.scale;
+    const isIceCoreTip = title === "ICE CORE";
+    const isBurstThresholdTip = title === "BURST THRESHOLDS";
+    const isCoffeeTip = title === "COFFEE";
+    this.activeTutorialTipMeta = this.getTutorialGuideMetaForTip(title, body);
+    if (this.tutorialGuideText && this.tutorialGuideSubText && this.activeTutorialTipMeta) {
+      this.tutorialGuideText.setText(this.activeTutorialTipMeta.title);
+      this.tutorialGuideSubText.setText(this.activeTutorialTipMeta.sub);
+      this.tutorialGuideText.setDepth(506);
+      this.tutorialGuideSubText.setDepth(506);
+      this.tutorialGuideText.setColor("#a8ffd1");
+      this.tutorialGuideSubText.setColor("#d4e8f7");
+      this.tutorialGuideText.setAlpha(1);
+      this.tutorialGuideSubText.setAlpha(1);
+    }
+    this.tutorialTipActive = true;
+    this.tutorialInputLocked = true;
+
+    const overlay = this.add
+      .rectangle(width * 0.5, height * 0.5, width, height, 0x000000, 0.65)
+      .setDepth(500)
+      .setInteractive();
+    this.tutorialTipElements.push(overlay);
+
+    let panelX = width * 0.5;
+    let panelY = height * 0.5;
+
+    if (isIceCoreTip && this.iceCoreBar && this.iceCoreBar.active) {
+      pointAtX = this.iceCoreBar.x + this.iceCoreBar.displayWidth * 0.5;
+      pointAtY = this.iceCoreBar.y;
+      panelX = width * 0.38;
+      panelY = height * 0.74;
+
+      const focusRing = this.add
+        .rectangle(pointAtX, pointAtY, 232, 34, 0x000000, 0)
+        .setStrokeStyle(2, 0x33ff88, 1)
+        .setDepth(502);
+      this.tutorialTipElements.push(focusRing);
+    }
+
+    if (isBurstThresholdTip && pointAtX !== undefined && pointAtY !== undefined) {
+      const burstArea = this.burstThresholdHighlightArea;
+      const burstX = burstArea ? burstArea.x : pointAtX;
+      const burstY = burstArea ? burstArea.y : pointAtY;
+      const burstW = burstArea ? burstArea.width : 232;
+      const burstH = burstArea ? burstArea.height : 34;
+      const burstFocusRing = this.add
+        .rectangle(burstX, burstY, burstW, burstH, 0x000000, 0)
+        .setStrokeStyle(2, 0x33ff88, 1)
+        .setDepth(502);
+      this.tutorialTipElements.push(burstFocusRing);
+    }
+
+    if (pointAtX !== undefined && pointAtY !== undefined) {
+      if (!isIceCoreTip && pointAtX < width * 0.5) {
+        panelX = width * 0.65;
+      } else if (!isIceCoreTip) {
+        panelX = width * 0.35;
+      }
+    }
+
+    if (title === "COMBO CHAINS") {
+      panelX = width * 0.34;
+      panelY = height * 0.54;
+    }
+
+    const panelW = title === "COMBO CHAINS" ? 360 : isIceCoreTip ? 430 : 420;
+    const panelH = title === "COMBO CHAINS" ? 240 : isIceCoreTip ? 220 : 260;
+    const panel = this.add
+      .rectangle(panelX, panelY, panelW, panelH, 0x112433, 0.97)
+      .setStrokeStyle(3, 0x33ff88, 1)
+      .setDepth(501);
+    this.tutorialTipElements.push(panel);
+
+    const iconGlow = this.add
+      .circle(panelX, panelY - 90, 18, 0x33ff88, 0.2)
+      .setDepth(501);
+    this.tutorialTipElements.push(iconGlow);
+
+    const tipTitle = this.add
+      .text(panelX, panelY - 90, title, {
+        fontFamily: "Yoster",
+        fontSize: "20px",
+        color: "#33ff88",
+        stroke: "#000000",
+        strokeThickness: 2,
+      })
+      .setOrigin(0.5)
+      .setDepth(502);
+    this.tutorialTipElements.push(tipTitle);
+
+    const tipBody = this.add
+      .text(panelX, panelY - 20, body, {
+        fontFamily: "Yoster",
+        fontSize: "12px",
+        color: "#d2e6f7",
+        align: "center",
+        lineSpacing: 5,
+        wordWrap: { width: panelW - 44 },
+      })
+      .setOrigin(0.5)
+      .setDepth(502);
+    this.tutorialTipElements.push(tipBody);
+
+    const btnW = 140;
+    const btnH = 34;
+    const btnY = panelY + 100;
+    const gotItBg = this.add
+      .rectangle(panelX, btnY, btnW, btnH, 0x2a4255, 1)
+      .setStrokeStyle(2, 0x33ff88, 1)
+      .setDepth(502)
+      .setInteractive({ useHandCursor: true });
+    this.tutorialTipElements.push(gotItBg);
+
+    const gotItText = this.add
+      .text(panelX, btnY, "GOT IT!", {
+        fontFamily: "Yoster",
+        fontSize: "14px",
+        color: "#33ff88",
+      })
+      .setOrigin(0.5)
+      .setDepth(503);
+    this.tutorialTipElements.push(gotItText);
+
+    gotItBg.on("pointerover", () => gotItBg.setFillStyle(0x3a5d76, 1));
+    gotItBg.on("pointerout", () => gotItBg.setFillStyle(0x2a4255, 1));
+    gotItBg.on("pointerdown", () => {
+      this.tutorialInputLocked = false;
+      if (isCoffeeTip) {
+        this.tutorialCoffeeUnlocked = true;
+        this.refillSpawnBag();
+        if (this.spawnOneTile("coffee")) {
+          this.refreshAll();
+        }
+      }
+      this.dismissTutorialTip();
+      if (onDismiss) {
+        onDismiss();
+      }
+    });
+
+    // Pulse the GOT IT button
+    this.tweens.add({
+      targets: gotItBg,
+      scaleX: 1.05,
+      scaleY: 1.05,
+      duration: 500,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
+
+    // Fade in
+    this.tutorialTipElements.forEach((el) => {
+      if (el) {
+        el.setAlpha(0);
+      }
+    });
+    this.tweens.add({
+      targets: this.tutorialTipElements,
+      alpha: 1,
+      duration: 200,
+      ease: "Sine.easeOut",
+    });
+  }
+
+  dismissTutorialTip() {
+    this.tutorialTipActive = false;
+    this.tutorialInputLocked = false;
+    this.activeTutorialTipMeta = null;
+
+    if (this.tutorialGuideText && this.tutorialGuideSubText) {
+      this.tutorialGuideText.setDepth(0);
+      this.tutorialGuideSubText.setDepth(0);
+      this.tutorialGuideText.setColor("#a8ffd1");
+      this.tutorialGuideSubText.setColor("#9fc2dd");
+      this.tutorialGuideText.setAlpha(1);
+      this.tutorialGuideSubText.setAlpha(1);
+    }
+
+    this.tutorialTipElements.forEach((el) => {
+      if (el && el.active) {
+        this.tweens.killTweensOf(el);
+        el.destroy();
+      }
+    });
+    this.tutorialTipElements = [];
+
+    this.updateTutorialGuide();
   }
 
   initializeState() {
@@ -263,10 +2040,6 @@ export class OverheatPuzzleScene extends Phaser.Scene {
 
     this.spawnBag = [];
     this.refillSpawnBag();
-
-    if (this.gameOverPanel && this.gameOverPanel.container) {
-      this.gameOverPanel.container.setVisible(false).setAlpha(0);
-    }
   }
 
   initializeGameplayAudio() {
@@ -559,13 +2332,32 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     this.add.image(width / 2, height / 2, "bgVendingMachine").setDisplaySize(width, height).setDepth(-100);
 
     this.createBoardViews();
-    this.createRightPanel();
-    this.createControls();
+    this.createTutorialControls();
     this.createCutInOverlay();
-    this.createGameOverPanel();
 
     this.addWireSparks();
     this.addRedLightGlow();
+  }
+
+  createTutorialControls() {
+    const { width } = this.scale;
+    const panelX = width * 0.73;
+
+    // D-pad controls
+    const dpadMidX = panelX;
+    const dpadMidY = 395;
+    const dpadTopY = dpadMidY - 36;
+    const dpadBotY = dpadMidY + 36;
+    const dpadLeftX = dpadMidX - 70;
+    const dpadRightX = dpadMidX + 70;
+
+    this.createButton(dpadMidX, dpadTopY, "UP", () => this.handleMove("up"), 60, 30);
+    this.createButton(dpadLeftX, dpadMidY, "LEFT", () => this.handleMove("left"), 60, 30);
+    this.createButton(dpadRightX, dpadMidY, "RIGHT", () => this.handleMove("right"), 60, 30);
+    this.createButton(dpadMidX, dpadBotY, "DOWN", () => this.handleMove("down"), 60, 30);
+
+    this.createButton(panelX - 65, 480, "RESTART", () => this.scene.restart(), 110, 30);
+    this.createButton(panelX + 65, 480, "SKIP", () => this.scene.start("MainMenuScene"), 110, 30);
   }
 
   addWireSparks() {
@@ -964,24 +2756,21 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       const source = img.texture.getSourceImage();
       const w = source && source.width ? source.width : 50;
       const h = source && source.height ? source.height : 50;
-      const ratio = Math.min(32 / w, 32 / h);
+      const ratio = Math.min(22 / w, 22 / h);
       img.setScale(ratio);
 
-      this.add.text(cx, cy + 26, amount.toString(), {
+      this.add.text(cx + 12, cy, amount.toString(), {
         fontFamily: "Yoster",
         fontSize: "12px",
         color: "#bcd0e2",
-      }).setOrigin(0.5);
+      }).setOrigin(0, 0.5);
     };
 
-    // Top row: Cola, Juice
-    addThresholdIcon(panelX - 48, 352, "cola", 5);
-    addThresholdIcon(panelX + 48, 352, "juice", 4);
-
-    // Bottom row: Water, Coffee, Tea
-    addThresholdIcon(panelX - 72, 402, "water", 3);
-    addThresholdIcon(panelX, 402, "coffee", 2);
-    addThresholdIcon(panelX + 72, 402, "tea", 6);
+    addThresholdIcon(panelX - 95, 345, "water", 3);
+    addThresholdIcon(panelX - 50, 345, "juice", 4);
+    addThresholdIcon(panelX - 5, 345, "tea", 6);
+    addThresholdIcon(panelX + 40, 345, "cola", 5);
+    addThresholdIcon(panelX + 85, 345, "coffee", 2);
   }
 
   showInfoModal() {
@@ -993,189 +2782,56 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     const { width, height } = this.scale;
     const cx = width * 0.5;
     const cy = height * 0.5;
-    const panelW = 760;
-    const panelH = 500;
-    const panelLeft = cx - panelW * 0.5;
-    const panelTop = cy - panelH * 0.5;
-    const contentLeft = panelLeft + 220;
-    const contentW = panelW - 250;
-    const contentCenterX = contentLeft + contentW * 0.5;
 
     this.infoModal = this.add.container(0, 0).setDepth(1000);
 
-    const overlay = this.add.rectangle(cx, cy, width, height, 0x000000, 0.72);
+    const overlay = this.add.rectangle(cx, cy, width, height, 0x000000, 0.7);
     overlay.setInteractive();
 
-    const bg = this.add.rectangle(cx, cy, panelW, panelH, 0x13212d, 1).setStrokeStyle(3, 0x587d93, 1);
-    const titleBand = this.add.rectangle(cx, panelTop + 40, panelW - 24, 62, 0x1a3040, 1).setStrokeStyle(1, 0x355064, 1);
-    const accentBar = this.add.rectangle(cx, panelTop + 14, panelW - 42, 4, 0x7fd7ff, 1);
+    const bg = this.add.rectangle(cx, cy, 600, 480, 0x152532, 1).setStrokeStyle(4, 0x395365, 1);
 
-    const characterFrame = this.add
-      .rectangle(panelLeft + 112, cy + 14, 190, 360, 0x10202b, 0.82)
-      .setStrokeStyle(1, 0x355064, 1);
-
-    const character = this.add.image(panelLeft + 112, cy + 10, "howtoplay").setOrigin(0.5, 0.5);
+    const character = this.add.image(cx - 250, cy, "howtoplay").setOrigin(0.5, 0.5);
     const source = character.texture.getSourceImage();
     if (source && source.width) {
-      const ratio = Math.min(160 / source.width, 260 / source.height);
+      const ratio = Math.min(240 / source.width, 460 / source.height);
       character.setScale(ratio);
     } else {
-      character.setDisplaySize(160, 260);
+      character.setDisplaySize(200, 400);
     }
 
-    const title = this.add.text(cx, panelTop + 24, "HOW TO PLAY", {
+    const title = this.add.text(cx + 50, cy - 210, "HOW TO PLAY", {
       fontFamily: "Yoster",
-      fontSize: "26px",
-      color: "#f7fbff",
-      stroke: "#000000",
-      strokeThickness: 3,
+      fontSize: "24px",
+      color: "#ffffff"
     }).setOrigin(0.5);
 
-    const subtitle = this.add.text(cx, panelTop + 54, "Swipe on touch. Use arrows on keyboard.", {
-      fontFamily: "Yoster",
-      fontSize: "12px",
-      color: "#9fc2dd",
-    }).setOrigin(0.5);
-
-    const tabData = {
-      overview: {
-        label: "OVERVIEW",
-        title: "Goal",
-        body: [
-          "Keep the Ice Core alive while building stronger drink combos.",
-          "Slide the board to merge matching drinks and raise their charge.",
-          "When a drink fills its charge bar, it bursts and triggers a power.",
-          "Every turn matters because moves can drain the core, spawn tiles, and create deadlocks.",
-        ],
-        footer: "Focus on useful merges instead of random slides.",
-      },
-      controls: {
-        label: "CONTROLS",
-        title: "How To Move",
-        body: [
-          "Touch: swipe up, down, left, or right on the board.",
-          "Keyboard: use the arrow keys on laptops and desktops.",
-          "Menus: tap INFO, CLOSE, RESTART, and BACK.",
-          "A swipe only counts if it starts on the board area.",
-        ],
-        footer: "Short swipes are fine as long as the direction is clear.",
-      },
-      drinks: {
-        label: "DRINKS",
-        title: "Special Powers",
-        body: [
-          "Water: helps coffee progress across the board.",
-          "Juice: charges nearby slots.",
-          "Tea: converts all tea tiles into another drink.",
-          "Cola: blasts surrounding tiles and can break deadlocks.",
-          "Coffee: restores Ice Core when it bursts.",
-        ],
-        footer: "The burst threshold is shown next to each drink icon.",
-      },
-      events: {
-        label: "EVENTS",
-        title: "What Changes Mid-Run",
-        body: [
-          "Heat Intensifies: Ice Core drains faster and coffee spreads quicker.",
-          "Cold Snap: movement cost is removed, but some tiles freeze.",
-          "At 100+ moves, the board can shuffle and rearrange itself.",
-          "These events shift the best move, so keep adapting.",
-        ],
-        footer: "A safe move now can be a bad move one turn later.",
-      },
-    };
-
-    const tabButtons = {};
-    const tabKeys = Object.keys(tabData);
-    const tabY = panelTop + 104;
-    const tabStartX = contentLeft + 70;
-    const tabGap = 112;
-
-    const detailTitle = this.add.text(contentCenterX, panelTop + 146, "", {
-      fontFamily: "Yoster",
-      fontSize: "18px",
-      color: "#ffe9b0",
-    }).setOrigin(0.5);
-
-    const detailBody = this.add.text(contentLeft + 16, panelTop + 176, "", {
-      fontFamily: "Yoster",
-      fontSize: "13px",
-      color: "#d9e9f5",
-      align: "left",
-      lineSpacing: 8,
-      wordWrap: { width: contentW - 32 },
-    }).setOrigin(0, 0);
-
-    const detailFooter = this.add.text(contentCenterX, panelTop + 410, "", {
-      fontFamily: "Yoster",
-      fontSize: "12px",
-      color: "#9fc2dd",
-      align: "center",
-      wordWrap: { width: contentW - 40 },
-    }).setOrigin(0.5);
-
-    const quickStats = [
-      { x: panelLeft + 112, y: panelTop + 310, label: "TURN", value: "one swipe" },
-      { x: panelLeft + 112, y: panelTop + 354, label: "BURST", value: "full charge" },
-      { x: panelLeft + 112, y: panelTop + 398, label: "LOSE", value: "Ice Core zero" },
-    ];
-
-    const statElements = [];
-    quickStats.forEach((item) => {
-      const statBg = this.add.rectangle(item.x, item.y, 188, 34, 0x182634, 1).setStrokeStyle(1, 0x355064, 1);
-      const statLabel = this.add.text(item.x - 78, item.y, item.label, {
+    const content = this.add.text(cx + 50, cy - 175,
+      "GAME MECHANICS:\n" +
+      "- Merge same drinks to charge slots. Full slots burst!\n" +
+      "- Prevent the Ice Core from melting to stay alive.\n" +
+      "- Warning: Coffee is spreading across the grid over time!\n" +
+      "- At 100+ moves, the board has a random chance to shuffle!\n\n" +
+      "EVENTS:\n" +
+      "- Heat Intensifies: Core drains faster, coffee spreads.\n" +
+      "- Cold Snap: Moves cost nothing, but some tiles freeze.\n\n" +
+      "SPRITE POWERS:\n" +
+      "- Water (3): Gives +1 charge to all water on the grid.\n" +
+      "- Juice (4): Charges adjacent slots.\n" +
+      "- Tea (6): Converts all tea on board to another drink.\n" +
+      "- Cola (5): Explodes surrounding slots.\n" +
+      "- Coffee (2): Grants Ice Core +1.",
+      {
         fontFamily: "Yoster",
-        fontSize: "11px",
-        color: "#9fc2dd",
-      }).setOrigin(0, 0.5);
-      const statValue = this.add.text(item.x + 78, item.y, item.value, {
-        fontFamily: "Yoster",
-        fontSize: "11px",
-        color: "#f2f8ff",
-      }).setOrigin(1, 0.5);
-      statElements.push(statBg, statLabel, statValue);
-    });
+        fontSize: "14px",
+        color: "#d4e8f7",
+        align: "left",
+        lineSpacing: 6,
+        wordWrap: { width: 540 }
+      }
+    ).setOrigin(0.5, 0);
 
-    const setActiveSection = (key) => {
-      const section = tabData[key];
-      detailTitle.setText(section.title);
-      detailBody.setText(section.body.map((line) => `- ${line}`).join("\n"));
-      detailFooter.setText(section.footer);
-
-      tabKeys.forEach((tabKey) => {
-        const tab = tabButtons[tabKey];
-        const active = tabKey === key;
-        tab.active = active;
-        tab.button.setFillStyle(active ? 0x3a5d76 : 0x223545, 1);
-        tab.button.setStrokeStyle(2, active ? 0x9ee7ff : 0x5f7f95, 1);
-        tab.label.setColor(active ? "#ffffff" : "#b9cfe0");
-      });
-    };
-
-    tabKeys.forEach((key, index) => {
-      const tabX = tabStartX + index * tabGap;
-      const tab = this.add.rectangle(tabX, tabY, 104, 30, 0x223545, 1).setStrokeStyle(2, 0x5f7f95, 1);
-      const tabLabel = this.add.text(tabX, tabY, tabData[key].label, {
-        fontFamily: "Yoster",
-        fontSize: "12px",
-        color: "#b9cfe0",
-      }).setOrigin(0.5);
-
-      tab.setInteractive({ useHandCursor: true });
-      tab.on("pointerover", () => tab.setFillStyle(0x314b5f, 1));
-      tab.on("pointerout", () => {
-        const active = tabButtons[key] && tabButtons[key].active;
-        tab.setFillStyle(active ? 0x3a5d76 : 0x223545, 1);
-      });
-      tab.on("pointerdown", () => setActiveSection(key));
-
-      tabButtons[key] = { button: tab, label: tabLabel, active: false };
-    });
-
-    setActiveSection("overview");
-
-    const closeBtn = this.add.rectangle(cx, panelTop + panelH - 34, 148, 36, 0x2a4255, 1).setStrokeStyle(2, 0x7fabca, 1);
-    const closeText = this.add.text(cx, panelTop + panelH - 34, "CLOSE", {
+    const closeBtn = this.add.rectangle(cx + 50, cy + 210, 120, 34, 0x2a4255, 1).setStrokeStyle(2, 0x7fabca, 1);
+    const closeText = this.add.text(cx + 50, cy + 210, "CLOSE", {
       fontFamily: "Yoster",
       fontSize: "14px",
       color: "#eaf4ff"
@@ -1188,185 +2844,25 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       this.infoModal.setVisible(false);
     });
 
-    this.infoModal.add([
-      overlay,
-      bg,
-      titleBand,
-      accentBar,
-      characterFrame,
-      character,
-      title,
-      subtitle,
-      detailTitle,
-      detailBody,
-      detailFooter,
-      closeBtn,
-      closeText,
-      ...statElements,
-    ]);
-
-    Object.values(tabButtons).forEach((tab) => {
-      this.infoModal.add([tab.button, tab.label]);
-    });
-  }
-
-  createGameOverPanel() {
-    const { width, height } = this.scale;
-    const cx = width * 0.5;
-    const cy = height * 0.5;
-
-    const container = this.add.container(0, 0).setDepth(1200).setVisible(false).setAlpha(0);
-
-    const overlay = this.add.rectangle(cx, cy, width, height, 0x000000, 0.76);
-    overlay.setInteractive();
-
-    const panel = this.add
-      .rectangle(cx, cy, 520, 300, 0x13212d, 0.98)
-      .setStrokeStyle(3, 0x587d93, 1);
-
-    const accentBar = this.add.rectangle(cx, cy - 132, 470, 4, 0x7fd7ff, 1);
-
-    const title = this.add
-      .text(cx, cy - 102, "GAME OVER", {
-        fontFamily: "Yoster",
-        fontSize: "36px",
-        color: "#f4fbff",
-        stroke: "#000000",
-        strokeThickness: 4,
-      })
-      .setOrigin(0.5);
-
-    const subtitle = this.add
-      .text(cx, cy - 32, "", {
-        fontFamily: "Yoster",
-        fontSize: "16px",
-        color: "#ffb8b8",
-        align: "center",
-        wordWrap: { width: 450 },
-      })
-      .setOrigin(0.5);
-
-    const stats = this.add
-      .text(cx, cy + 20, "", {
-        fontFamily: "Yoster",
-        fontSize: "14px",
-        color: "#d6e7f7",
-      })
-      .setOrigin(0.5);
-
-    const restartButton = this.add
-      .rectangle(cx - 90, cy + 92, 160, 38, 0x2a4255, 1)
-      .setStrokeStyle(2, 0x7fabca, 1)
-      .setInteractive({ useHandCursor: true });
-    const restartLabel = this.add
-      .text(cx - 90, cy + 92, "RESTART", {
-        fontFamily: "Yoster",
-        fontSize: "14px",
-        color: "#eaf4ff",
-      })
-      .setOrigin(0.5);
-
-    restartButton.on("pointerover", () => restartButton.setFillStyle(0x3a5d76, 1));
-    restartButton.on("pointerout", () => restartButton.setFillStyle(0x2a4255, 1));
-    restartButton.on("pointerdown", () => this.scene.restart());
-
-    const backButton = this.add
-      .rectangle(cx + 90, cy + 92, 160, 38, 0x2a4255, 1)
-      .setStrokeStyle(2, 0x7fabca, 1)
-      .setInteractive({ useHandCursor: true });
-    const backLabel = this.add
-      .text(cx + 90, cy + 92, "BACK", {
-        fontFamily: "Yoster",
-        fontSize: "14px",
-        color: "#eaf4ff",
-      })
-      .setOrigin(0.5);
-
-    backButton.on("pointerover", () => backButton.setFillStyle(0x3a5d76, 1));
-    backButton.on("pointerout", () => backButton.setFillStyle(0x2a4255, 1));
-    backButton.on("pointerdown", () => this.scene.start("MainMenuScene"));
-
-    container.add([
-      overlay,
-      panel,
-      accentBar,
-      title,
-      subtitle,
-      stats,
-      restartButton,
-      restartLabel,
-      backButton,
-      backLabel,
-    ]);
-
-    this.gameOverPanel = {
-      container,
-      subtitle,
-      stats,
-      panel,
-    };
-  }
-
-  showGameOverPanel(reason) {
-    if (!this.gameOverPanel || !this.gameOverPanel.container) {
-      return;
-    }
-
-    const reasonText = reason === "deadlock"
-      ? "No legal moves left on a full board."
-      : "The Ice Core melted and cooling has failed.";
-
-    this.gameOverPanel.subtitle.setText(reasonText);
-    this.gameOverPanel.stats.setText(`Turns: ${this.turnCount}    Score: ${this.score}`);
-
-    this.stopGameplayAudio();
-
-    if (
-      this.sys &&
-      this.sys.isActive() &&
-      this.sound &&
-      this.cache.audio.exists("gameOverMusic") &&
-      !this.registry.get("muteBgm")
-    ) {
-      if (!this.gameOverMusic) {
-        this.gameOverMusic = this.sound.add("gameOverMusic", { volume: 0.72, loop: false });
-      }
-
-      if (this.gameOverMusic.isPlaying) {
-        this.gameOverMusic.stop();
-      }
-
-      this.gameOverMusic.setVolume(0.72);
-      this.gameOverMusic.setMute(false);
-      this.gameOverMusic.play({ volume: 0.72, loop: false });
-    }
-
-    if (this.infoModal && this.infoModal.visible) {
-      this.infoModal.setVisible(false);
-    }
-
-    this.gameOverPanel.container.setVisible(true).setAlpha(0);
-    this.gameOverPanel.panel.setScale(0.94);
-
-    this.tweens.add({
-      targets: this.gameOverPanel.container,
-      alpha: 1,
-      duration: 180,
-      ease: "Sine.easeOut",
-    });
-
-    this.tweens.add({
-      targets: this.gameOverPanel.panel,
-      scaleX: 1,
-      scaleY: 1,
-      duration: 220,
-      ease: "Back.easeOut",
-    });
+    this.infoModal.add([overlay, bg, character, title, content, closeBtn, closeText]);
   }
 
   createControls() {
     const { width } = this.scale;
     const panelX = width * 0.73;
+
+    const dpadMidX = panelX;
+    const dpadLeftX = panelX - 60;
+    const dpadRightX = panelX + 60;
+
+    const dpadTopY = 390;
+    const dpadMidY = 428;
+    const dpadBotY = 466;
+
+    this.createButton(dpadMidX, dpadTopY, "UP", () => this.handleMove("up"), 60, 30);
+    this.createButton(dpadLeftX, dpadMidY, "LEFT", () => this.handleMove("left"), 60, 30);
+    this.createButton(dpadRightX, dpadMidY, "RIGHT", () => this.handleMove("right"), 60, 30);
+    this.createButton(dpadMidX, dpadBotY, "DOWN", () => this.handleMove("down"), 60, 30);
 
     this.createButton(panelX - 65, 505, "RESTART", () => this.scene.restart(), 110, 30);
     this.createButton(panelX + 65, 505, "BACK", () => this.scene.start("MainMenuScene"), 110, 30);
@@ -1376,16 +2872,24 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     const button = this.add.rectangle(x, y, width, height, 0x2a4255, 1).setStrokeStyle(2, 0x7fabca, 1);
     const text = this.add
       .text(x, y, label, {
-        fontFamily: "Yoster",
-        fontSize: "12px",
-        color: "#eaf4ff",
+        fontFamily: "Yoster", fontSize: "12px", color: "#eaf4ff",
       })
       .setOrigin(0.5);
 
     button.setInteractive({ useHandCursor: true });
     button.on("pointerover", () => button.setFillStyle(0x3a5d76, 1));
     button.on("pointerout", () => button.setFillStyle(0x2a4255, 1));
-    button.on("pointerdown", () => onClick());
+    button.on("pointerdown", (pointer) => {
+      if (!pointer.leftButtonDown()) {
+        return;
+      }
+      // During tutorial cinematics/dialogue, ignore panel button input
+      // so full-screen taps only advance the story. The BACK/SKIP button is an exception.
+      if (this.tutorialMode && this.tutorialInputLocked && label !== "BACK" && label !== "SKIP") {
+        return;
+      }
+      onClick();
+    });
 
     return { button, text };
   }
@@ -1448,12 +2952,6 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       .setDepth(254)
       .setVisible(false);
 
-    this.cutIn.eventChar = this.add
-      .image(width + 200, height * 0.5, "heatChar")
-      .setDepth(245)
-      .setOrigin(0.5, 0.5)
-      .setVisible(false);
-
     this.cutIn.particles = [];
   }
 
@@ -1463,57 +2961,11 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     this.input.keyboard.on("keydown-LEFT", () => this.handleMove("left"));
     this.input.keyboard.on("keydown-RIGHT", () => this.handleMove("right"));
 
-    this.input.on("pointerdown", (pointer) => {
-      if (this.gameOver || this.isResolving) {
-        this.swipeStartPoint = null;
-        return;
-      }
-
-      const boardRight = this.boardX + this.gridSize * this.cellSize - 8;
-      const boardBottom = this.boardY + this.gridSize * this.cellSize - 8;
-      if (pointer.x < this.boardX || pointer.x > boardRight || pointer.y < this.boardY || pointer.y > boardBottom) {
-        this.swipeStartPoint = null;
-        return;
-      }
-
-      this.swipeStartPoint = {
-        x: pointer.x,
-        y: pointer.y,
-      };
-    });
-
-    this.input.on("pointerup", (pointer) => {
-      if (!this.swipeStartPoint || this.gameOver || this.isResolving) {
-        this.swipeStartPoint = null;
-        return;
-      }
-
-      const deltaX = pointer.x - this.swipeStartPoint.x;
-      const deltaY = pointer.y - this.swipeStartPoint.y;
-      const absX = Math.abs(deltaX);
-      const absY = Math.abs(deltaY);
-      const minSwipeDistance = 28;
-
-      this.swipeStartPoint = null;
-
-      if (Math.max(absX, absY) < minSwipeDistance) {
-        return;
-      }
-
-      if (absX > absY) {
-        this.handleMove(deltaX > 0 ? "right" : "left");
-      } else {
-        this.handleMove(deltaY > 0 ? "down" : "up");
-      }
-    });
-
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.input.keyboard.off("keydown-UP");
       this.input.keyboard.off("keydown-DOWN");
       this.input.keyboard.off("keydown-LEFT");
       this.input.keyboard.off("keydown-RIGHT");
-      this.input.off("pointerdown");
-      this.input.off("pointerup");
 
       if (this.activeHeatCutInState && this.activeHeatCutInState.cleanup) {
         this.activeHeatCutInState.cleanup();
@@ -1535,14 +2987,6 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       if (this.freshenUpSfx) {
         this.freshenUpSfx.destroy();
         this.freshenUpSfx = null;
-      }
-
-      if (this.gameOverMusic) {
-        if (this.gameOverMusic.isPlaying) {
-          this.gameOverMusic.stop();
-        }
-        this.gameOverMusic.destroy();
-        this.gameOverMusic = null;
       }
 
       if (this.heatIntensifiesSfx) {
@@ -1608,7 +3052,9 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       this.refillSpawnBag();
     }
 
-    if (this.hasTypeOnBoard("coffee")) {
+    const shouldBlockCoffeeSpawn = (this.tutorialMode && !this.tutorialCoffeeUnlocked) || this.hasTypeOnBoard("coffee");
+
+    if (shouldBlockCoffeeSpawn) {
       let index = this.spawnBag.findIndex((item) => item !== "coffee");
       if (index === -1) {
         this.refillSpawnBag();
@@ -1666,8 +3112,26 @@ export class OverheatPuzzleScene extends Phaser.Scene {
   }
 
   handleMove(direction) {
+    if (this.tutorialInputLocked) {
+      this.setMessage("Intro scene in progress.", "#ffd59a");
+      return;
+    }
+
+    // Block input during tutorial tip popups
+    if (this.tutorialTipActive) {
+      return;
+    }
+
     if (this.gameOver || this.isResolving || (this.activeComboSfx && this.activeComboSfx.isPlaying)) {
       return;
+    }
+
+    // Check if the player followed the highlighted best-move direction
+    if (this.tutorialMode && this.tutorialStepIndex === 6 && this.tutorialBestDirection) {
+      if (direction === this.tutorialBestDirection) {
+        this.tutorialBestMoveFollowed = true;
+      }
+      this.tutorialBestDirection = null;
     }
 
     const result = this.slideAndMerge(direction);
@@ -1685,6 +3149,11 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     this.isResolving = true;
     this.turnCount += 1;
     this.resetTurnComboState();
+    // Reset per-turn burst counter so combo detection works per-turn
+    if (this.tutorialMode) {
+      this.tutorialStats.bursts = 0;
+    }
+    this.updateTutorialProgress(result);
 
     this.checkSpecialPhaseProgression();
 
@@ -1718,7 +3187,6 @@ export class OverheatPuzzleScene extends Phaser.Scene {
         this.resolveBurstQueue(bursts, () => {
           this.applyCoffeePassive();
           this.tickFreezeTurns();
-          this.updateCustomer();
           this.advanceHeatPhaseTurn();
           this.advanceColdSnapPhaseTurn();
           this.normalizeIceState();
@@ -2044,22 +3512,6 @@ export class OverheatPuzzleScene extends Phaser.Scene {
         ease: "Cubic.easeIn",
       });
 
-      // Slide event character back out to the left
-      if (this.cutIn.eventChar && this.cutIn.eventChar.visible) {
-        this.tweens.killTweensOf(this.cutIn.eventChar);
-        const charHalfW = this.cutIn.eventChar.displayWidth * 0.5;
-        this.tweens.add({
-          targets: this.cutIn.eventChar,
-          x: -charHalfW,
-          alpha: 0,
-          duration: exitDuration + 200,
-          ease: "Cubic.easeIn",
-          onComplete: () => {
-            this.cutIn.eventChar.setVisible(false);
-          },
-        });
-      }
-
       this.tweens.add({
         targets: this.cutIn.overlay,
         alpha: 0,
@@ -2314,22 +3766,6 @@ export class OverheatPuzzleScene extends Phaser.Scene {
         ease: "Cubic.easeIn",
       });
 
-      // Slide event character back out to the left with the notification
-      if (this.cutIn.eventChar && this.cutIn.eventChar.visible) {
-        this.tweens.killTweensOf(this.cutIn.eventChar);
-        const charHalfW = this.cutIn.eventChar.displayWidth * 0.5;
-        this.tweens.add({
-          targets: this.cutIn.eventChar,
-          x: -charHalfW,
-          alpha: 0,
-          duration: exitDuration + 200,
-          ease: "Cubic.easeIn",
-          onComplete: () => {
-            this.cutIn.eventChar.setVisible(false);
-          },
-        });
-      }
-
       this.tweens.add({
         targets: this.cutIn.overlay,
         alpha: 0,
@@ -2534,35 +3970,6 @@ export class OverheatPuzzleScene extends Phaser.Scene {
         });
       },
     });
-
-    // Animate heatChar sliding in from the left side (half body visible)
-    if (this.cutIn.eventChar) {
-      this.tweens.killTweensOf(this.cutIn.eventChar);
-      this.cutIn.eventChar
-        .setTexture("heatChar")
-        .setVisible(true)
-        .setAlpha(0);
-
-      const charSource = this.cutIn.eventChar.texture.getSourceImage();
-      const charH = charSource.height || 1;
-      const charScale = (height * 0.85) / charH;
-      this.cutIn.eventChar.setScale(charScale);
-
-      const charHalfW = this.cutIn.eventChar.displayWidth * 0.5;
-      // Start off-screen to the left
-      this.cutIn.eventChar.setPosition(-charHalfW, height * 0.5);
-
-      // Slide in so roughly half the body peeks from the left edge
-      const targetX = charHalfW * 0.45;
-
-      this.tweens.add({
-        targets: this.cutIn.eventChar,
-        x: targetX,
-        alpha: 0.9,
-        duration: 500,
-        ease: "Back.easeOut",
-      });
-    }
   }
 
   playColdSnapFadesCutIn(done) {
@@ -2605,22 +4012,6 @@ export class OverheatPuzzleScene extends Phaser.Scene {
         duration: exitDuration + 100,
         ease: "Cubic.easeIn",
       });
-
-      // Slide event character back out to the left
-      if (this.cutIn.eventChar && this.cutIn.eventChar.visible) {
-        this.tweens.killTweensOf(this.cutIn.eventChar);
-        const charHalfW = this.cutIn.eventChar.displayWidth * 0.5;
-        this.tweens.add({
-          targets: this.cutIn.eventChar,
-          x: -charHalfW,
-          alpha: 0,
-          duration: exitDuration + 200,
-          ease: "Cubic.easeIn",
-          onComplete: () => {
-            this.cutIn.eventChar.setVisible(false);
-          },
-        });
-      }
 
       this.tweens.add({
         targets: this.cutIn.overlay,
@@ -2777,22 +4168,6 @@ export class OverheatPuzzleScene extends Phaser.Scene {
         ease: "Cubic.easeIn",
       });
 
-      // Slide event character back out to the left with the notification
-      if (this.cutIn.eventChar && this.cutIn.eventChar.visible) {
-        this.tweens.killTweensOf(this.cutIn.eventChar);
-        const charHalfW = this.cutIn.eventChar.displayWidth * 0.5;
-        this.tweens.add({
-          targets: this.cutIn.eventChar,
-          x: -charHalfW,
-          alpha: 0,
-          duration: exitDuration + 200,
-          ease: "Cubic.easeIn",
-          onComplete: () => {
-            this.cutIn.eventChar.setVisible(false);
-          },
-        });
-      }
-
       this.tweens.add({
         targets: this.cutIn.overlay,
         alpha: 0,
@@ -2835,8 +4210,8 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       beginExit();
     });
 
-    if (!this.registry.get("muteSfx") && this.sys && this.sys.isActive() && this.sound && this.cache.audio.exists("coldSnapEventSfx")) {
-      if (!this.coldSnapSfx) this.coldSnapSfx = this.sound.add("coldSnapEventSfx", { volume: 0.9 });
+    if (!this.registry.get("muteSfx") && this.sys && this.sys.isActive() && this.sound && this.cache.audio.exists("comboColdBreezeSfx")) {
+      if (!this.coldSnapSfx) this.coldSnapSfx = this.sound.add("comboColdBreezeSfx", { volume: 0.9 });
       if (this.coldSnapSfx.isPlaying) this.coldSnapSfx.stop();
       this.coldSnapSfx.setVolume(0.9);
       this.coldSnapSfx.play({ volume: 0.9 });
@@ -2902,35 +4277,6 @@ export class OverheatPuzzleScene extends Phaser.Scene {
         this.tweens.add({ targets: this.cutIn.title, scaleX: 1.04, scaleY: 1.04, duration: 140, yoyo: true, repeat: 1, ease: "Sine.easeInOut" });
       },
     });
-
-    // Animate coldChar sliding in from the left side (half body visible)
-    if (this.cutIn.eventChar) {
-      this.tweens.killTweensOf(this.cutIn.eventChar);
-      this.cutIn.eventChar
-        .setTexture("coldChar")
-        .setVisible(true)
-        .setAlpha(0);
-
-      const charSource = this.cutIn.eventChar.texture.getSourceImage();
-      const charH = charSource.height || 1;
-      const charScale = (height * 0.85) / charH;
-      this.cutIn.eventChar.setScale(charScale);
-
-      const charHalfW = this.cutIn.eventChar.displayWidth * 0.5;
-      // Start off-screen to the left
-      this.cutIn.eventChar.setPosition(-charHalfW, height * 0.5);
-
-      // Slide in so roughly half the body peeks from the left edge
-      const targetX = charHalfW * 0.45;
-
-      this.tweens.add({
-        targets: this.cutIn.eventChar,
-        x: targetX,
-        alpha: 0.9,
-        duration: 500,
-        ease: "Back.easeOut",
-      });
-    }
   }
 
   playBoardShuffleAnimation(onComplete) {
@@ -3118,6 +4464,15 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     }
 
     const burst = queue.shift();
+
+    // Tutorial tracking: mark burst events
+    if (this.tutorialMode && !this.tutorialGuideComplete) {
+      this.tutorialStats.bursts += 1;
+      this.tutorialFirstBurstSeen = true;
+      if (this.tutorialStats.bursts >= 2) {
+        this.tutorialComboSeen = true;
+      }
+    }
 
     const runBurstLogic = () => {
       this.playBurstPreShake(burst, () => {
@@ -3936,8 +5291,8 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     }
 
     if (type === "water") {
-      this.chargeAllWaterBy(1);
-      this.setMessage("Water burst: all water charged +1.", "#9fd4ff");
+      this.chargeAllCoffeeBy(1);
+      this.setMessage("Water burst: all coffee charged +1.", "#9fd4ff");
       return;
     }
 
@@ -4882,7 +6237,6 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       this.gameOver = true;
       this.setMessage("Ice tile melted. Press RESTART.", "#ff9f9f");
       this.cameras.main.shake(260, 0.004);
-      this.showGameOverPanel("ice");
       done();
       return;
     }
@@ -4891,7 +6245,6 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       this.gameOver = true;
       this.playIceMeltAnimation(() => {
         this.setMessage("Ice Core melted. Press RESTART.", "#ff9f9f");
-        this.showGameOverPanel("ice");
         done();
       });
       return;
@@ -5057,7 +6410,6 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     this.gameOver = true;
     this.setMessage("No possible moves on a full board. Press RESTART.", "#ff9f9f");
     this.cameras.main.shake(260, 0.004);
-    this.showGameOverPanel("deadlock");
   }
 
   hasAnyIceTile() {
@@ -5525,8 +6877,12 @@ export class OverheatPuzzleScene extends Phaser.Scene {
   }
 
   setMessage(text, color = "#9fc2dd") {
-    this.messageText.setText(text);
-    this.messageText.setColor(color);
+    if (this.messageText) {
+      this.messageText.setText(text);
+      this.messageText.setColor(color);
+    }
+
+    this.appendTutorialNotification(text);
   }
 
   getChargeCapForType(type) {

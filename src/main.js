@@ -3,6 +3,7 @@ import { OpeningScene } from "./scenes/boot/OpeningScene.js";
 import { IntroScene } from "./scenes/boot/IntroScene.js";
 import { MainMenuScene } from "./scenes/ui/MainMenuScene.js";
 import { OverheatPuzzleScene } from "./scenes/gameplay/OverheatPuzzleScene.js";
+import { TutorialScene } from "./scenes/gameplay/TutorialScene.js";
 
 const config = {
   type: Phaser.AUTO,
@@ -15,7 +16,10 @@ const config = {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
-  scene: [BootScene, OpeningScene, IntroScene, MainMenuScene, OverheatPuzzleScene],
+  dom: {
+    createContainer: true,
+  },
+  scene: [BootScene, OpeningScene, IntroScene, MainMenuScene, OverheatPuzzleScene, TutorialScene],
 };
 
 new Phaser.Game(config);
