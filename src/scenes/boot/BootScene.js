@@ -51,6 +51,7 @@ export class BootScene extends Phaser.Scene {
     this.load.audio("eventSfx", "public/assets/audio/sfx/event.mp3");
     this.load.audio("endEventSfx", "public/assets/audio/sfx/endEvent.mp3");
     this.load.audio("eventMusic", "public/assets/audio/music/eventmusic.mp3");
+    this.load.audio("gameOverMusic", "public/assets/audio/music/GameOver.mp3");
   }
 
   async create() {

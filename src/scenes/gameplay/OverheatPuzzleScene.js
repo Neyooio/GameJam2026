@@ -100,6 +100,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       this.heatBoardGlow = null;
 
       this.gameplayBgm = null;
+      this.gameOverMusic = null;
       this.freshenUpSfx = null;
       this.heatIntensifiesSfx = null;
       this.coldSnapSfx = null;
@@ -118,6 +119,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       this.customerSprite = null;
       this.customerBubble = null;
       this.customerText = null;
+      this.gameOverPanel = null;
 
     this.iceMeltCause = null;
     this.coffeeBurstsThisInstance = 0;
@@ -261,6 +263,10 @@ export class OverheatPuzzleScene extends Phaser.Scene {
 
     this.spawnBag = [];
     this.refillSpawnBag();
+
+    if (this.gameOverPanel && this.gameOverPanel.container) {
+      this.gameOverPanel.container.setVisible(false).setAlpha(0);
+    }
   }
 
   initializeGameplayAudio() {
@@ -556,6 +562,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     this.createRightPanel();
     this.createControls();
     this.createCutInOverlay();
+    this.createGameOverPanel();
 
     this.addWireSparks();
     this.addRedLightGlow();
@@ -1203,6 +1210,160 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     });
   }
 
+  createGameOverPanel() {
+    const { width, height } = this.scale;
+    const cx = width * 0.5;
+    const cy = height * 0.5;
+
+    const container = this.add.container(0, 0).setDepth(1200).setVisible(false).setAlpha(0);
+
+    const overlay = this.add.rectangle(cx, cy, width, height, 0x000000, 0.76);
+    overlay.setInteractive();
+
+    const panel = this.add
+      .rectangle(cx, cy, 520, 300, 0x13212d, 0.98)
+      .setStrokeStyle(3, 0x587d93, 1);
+
+    const accentBar = this.add.rectangle(cx, cy - 132, 470, 4, 0x7fd7ff, 1);
+
+    const title = this.add
+      .text(cx, cy - 102, "GAME OVER", {
+        fontFamily: "Yoster",
+        fontSize: "36px",
+        color: "#f4fbff",
+        stroke: "#000000",
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5);
+
+    const subtitle = this.add
+      .text(cx, cy - 32, "", {
+        fontFamily: "Yoster",
+        fontSize: "16px",
+        color: "#ffb8b8",
+        align: "center",
+        wordWrap: { width: 450 },
+      })
+      .setOrigin(0.5);
+
+    const stats = this.add
+      .text(cx, cy + 20, "", {
+        fontFamily: "Yoster",
+        fontSize: "14px",
+        color: "#d6e7f7",
+      })
+      .setOrigin(0.5);
+
+    const restartButton = this.add
+      .rectangle(cx - 90, cy + 92, 160, 38, 0x2a4255, 1)
+      .setStrokeStyle(2, 0x7fabca, 1)
+      .setInteractive({ useHandCursor: true });
+    const restartLabel = this.add
+      .text(cx - 90, cy + 92, "RESTART", {
+        fontFamily: "Yoster",
+        fontSize: "14px",
+        color: "#eaf4ff",
+      })
+      .setOrigin(0.5);
+
+    restartButton.on("pointerover", () => restartButton.setFillStyle(0x3a5d76, 1));
+    restartButton.on("pointerout", () => restartButton.setFillStyle(0x2a4255, 1));
+    restartButton.on("pointerdown", () => this.scene.restart());
+
+    const backButton = this.add
+      .rectangle(cx + 90, cy + 92, 160, 38, 0x2a4255, 1)
+      .setStrokeStyle(2, 0x7fabca, 1)
+      .setInteractive({ useHandCursor: true });
+    const backLabel = this.add
+      .text(cx + 90, cy + 92, "BACK", {
+        fontFamily: "Yoster",
+        fontSize: "14px",
+        color: "#eaf4ff",
+      })
+      .setOrigin(0.5);
+
+    backButton.on("pointerover", () => backButton.setFillStyle(0x3a5d76, 1));
+    backButton.on("pointerout", () => backButton.setFillStyle(0x2a4255, 1));
+    backButton.on("pointerdown", () => this.scene.start("MainMenuScene"));
+
+    container.add([
+      overlay,
+      panel,
+      accentBar,
+      title,
+      subtitle,
+      stats,
+      restartButton,
+      restartLabel,
+      backButton,
+      backLabel,
+    ]);
+
+    this.gameOverPanel = {
+      container,
+      subtitle,
+      stats,
+      panel,
+    };
+  }
+
+  showGameOverPanel(reason) {
+    if (!this.gameOverPanel || !this.gameOverPanel.container) {
+      return;
+    }
+
+    const reasonText = reason === "deadlock"
+      ? "No legal moves left on a full board."
+      : "The Ice Core melted and cooling has failed.";
+
+    this.gameOverPanel.subtitle.setText(reasonText);
+    this.gameOverPanel.stats.setText(`Turns: ${this.turnCount}    Score: ${this.score}`);
+
+    this.stopGameplayAudio();
+
+    if (
+      this.sys &&
+      this.sys.isActive() &&
+      this.sound &&
+      this.cache.audio.exists("gameOverMusic") &&
+      !this.registry.get("muteBgm")
+    ) {
+      if (!this.gameOverMusic) {
+        this.gameOverMusic = this.sound.add("gameOverMusic", { volume: 0.72, loop: false });
+      }
+
+      if (this.gameOverMusic.isPlaying) {
+        this.gameOverMusic.stop();
+      }
+
+      this.gameOverMusic.setVolume(0.72);
+      this.gameOverMusic.setMute(false);
+      this.gameOverMusic.play({ volume: 0.72, loop: false });
+    }
+
+    if (this.infoModal && this.infoModal.visible) {
+      this.infoModal.setVisible(false);
+    }
+
+    this.gameOverPanel.container.setVisible(true).setAlpha(0);
+    this.gameOverPanel.panel.setScale(0.94);
+
+    this.tweens.add({
+      targets: this.gameOverPanel.container,
+      alpha: 1,
+      duration: 180,
+      ease: "Sine.easeOut",
+    });
+
+    this.tweens.add({
+      targets: this.gameOverPanel.panel,
+      scaleX: 1,
+      scaleY: 1,
+      duration: 220,
+      ease: "Back.easeOut",
+    });
+  }
+
   createControls() {
     const { width } = this.scale;
     const panelX = width * 0.73;
@@ -1374,6 +1535,14 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       if (this.freshenUpSfx) {
         this.freshenUpSfx.destroy();
         this.freshenUpSfx = null;
+      }
+
+      if (this.gameOverMusic) {
+        if (this.gameOverMusic.isPlaying) {
+          this.gameOverMusic.stop();
+        }
+        this.gameOverMusic.destroy();
+        this.gameOverMusic = null;
       }
 
       if (this.heatIntensifiesSfx) {
@@ -4713,6 +4882,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       this.gameOver = true;
       this.setMessage("Ice tile melted. Press RESTART.", "#ff9f9f");
       this.cameras.main.shake(260, 0.004);
+      this.showGameOverPanel("ice");
       done();
       return;
     }
@@ -4721,6 +4891,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       this.gameOver = true;
       this.playIceMeltAnimation(() => {
         this.setMessage("Ice Core melted. Press RESTART.", "#ff9f9f");
+        this.showGameOverPanel("ice");
         done();
       });
       return;
@@ -4886,6 +5057,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     this.gameOver = true;
     this.setMessage("No possible moves on a full board. Press RESTART.", "#ff9f9f");
     this.cameras.main.shake(260, 0.004);
+    this.showGameOverPanel("deadlock");
   }
 
   hasAnyIceTile() {
