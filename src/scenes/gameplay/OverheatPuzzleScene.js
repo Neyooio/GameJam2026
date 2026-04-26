@@ -4524,6 +4524,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       this.gameOver = true;
       this.setMessage("Ice tile melted. Press RESTART.", "#ff9f9f");
       this.cameras.main.shake(260, 0.004);
+      this.playSfx("gameOverSfx");
       done();
       return;
     }
@@ -4532,6 +4533,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       this.gameOver = true;
       this.playIceMeltAnimation(() => {
         this.setMessage("Ice Core melted. Press RESTART.", "#ff9f9f");
+        this.playSfx("gameOverSfx");
         done();
       });
       return;
@@ -4697,6 +4699,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     this.gameOver = true;
     this.setMessage("No possible moves on a full board. Press RESTART.", "#ff9f9f");
     this.cameras.main.shake(260, 0.004);
+    this.playSfx("gameOverSfx");
   }
 
   hasAnyIceTile() {

@@ -1683,7 +1683,7 @@ export class TutorialScene extends Phaser.Scene {
         .line(0, 0, panelX, panelY, pointAtX, pointAtY, 0x33ff88, 0.8)
         .setOrigin(0, 0)
         .setDepth(499);
-    this.tutorialTipElements.push(pointerLine);
+      this.tutorialTipElements.push(pointerLine);
 
       const pointerDot = this.add
         .circle(pointAtX, pointAtY, 6, 0x33ff88, 1)
@@ -6029,6 +6029,7 @@ export class TutorialScene extends Phaser.Scene {
       this.gameOver = true;
       this.setMessage("Ice tile melted. Press RESTART.", "#ff9f9f");
       this.cameras.main.shake(260, 0.004);
+      this.playSfx("gameOverSfx");
       done();
       return;
     }
@@ -6037,6 +6038,7 @@ export class TutorialScene extends Phaser.Scene {
       this.gameOver = true;
       this.playIceMeltAnimation(() => {
         this.setMessage("Ice Core melted. Press RESTART.", "#ff9f9f");
+        this.playSfx("gameOverSfx");
         done();
       });
       return;
@@ -6202,6 +6204,7 @@ export class TutorialScene extends Phaser.Scene {
     this.gameOver = true;
     this.setMessage("No possible moves on a full board. Press RESTART.", "#ff9f9f");
     this.cameras.main.shake(260, 0.004);
+    this.playSfx("gameOverSfx");
   }
 
   hasAnyIceTile() {
