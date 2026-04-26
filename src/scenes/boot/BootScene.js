@@ -45,6 +45,7 @@ export class BootScene extends Phaser.Scene {
     this.load.audio("comboRefreshingSfx", "public/assets/audio/sfx/Refreshing.mp3");
     this.load.audio("comboSweetDrinkSfx", "public/assets/audio/sfx/SweetDrinks.mp3");
     this.load.audio("comboColdBreezeSfx", "public/assets/audio/sfx/Coldbreeze.mp3");
+    this.load.audio("coldSnapEventSfx", "public/assets/audio/sfx/ColdSnap.mp3");
     this.load.audio("popSfx", "public/assets/audio/sfx/pop.mp3");
     this.load.audio("heatIntensifiesSfx", "public/assets/audio/sfx/HeatIntensifies.mp3");
     this.load.audio("eventSfx", "public/assets/audio/sfx/event.mp3");

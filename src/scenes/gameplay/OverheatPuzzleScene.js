@@ -27,10 +27,10 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     this.coldSnapPhaseTriggered = false;
     this.coldSnapPhaseMovesRemaining = 0;
 
-    this.iceCoreMax = 20;
-    this.iceCore = 16;
+      this.iceCoreMax = 20;
+      this.iceCore = 16;
 
-    this.coffeePassiveInterval = 3;
+      this.coffeePassiveInterval = 3;
 
     this.burstThresholds = {
       water: 3,
@@ -41,7 +41,7 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       ice: 999,
     };
 
-    this.iceChargeMax = 6;
+      this.iceChargeMax = 6;
 
     this.productColors = {
       water: 0x66b8ff,
@@ -74,15 +74,15 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       "coffee",
     ];
 
-    this.cellRects = [];
-    this.tileSprites = [];
-    this.freezeTexts = [];
+      this.cellRects = [];
+      this.tileSprites = [];
+      this.freezeTexts = [];
 
-    this.iceCoreText = null;
-    this.scoreText = null;
-    this.turnText = null;
-    this.messageText = null;
-    this.iceCoreBar = null;
+      this.iceCoreText = null;
+      this.scoreText = null;
+      this.turnText = null;
+      this.messageText = null;
+      this.iceCoreBar = null;
 
     this.cutIn = {
       overlay: null,
@@ -96,27 +96,28 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       particles: [],
     };
 
-    this.heatBoardOutline = null;
-    this.heatBoardGlow = null;
+      this.heatBoardOutline = null;
+      this.heatBoardGlow = null;
 
-    this.gameplayBgm = null;
-    this.freshenUpSfx = null;
-    this.heatIntensifiesSfx = null;
-    this.coldSnapSfx = null;
-    this.activeHeatCutInState = null;
-    this.comboSfxByKey = {};
-    this.activeComboSfx = null;
-    this.activeColaBurstSound = null;
-    this.turnFreshenCount = 0;
-    this.turnFreshenTypes = new Set();
-    this.turnComboTier = 0;
-    this.turnComboSoundPlayed = false;
-    this.isSlideAnimating = false;
-    this.activeMoveSprites = [];
+      this.gameplayBgm = null;
+      this.freshenUpSfx = null;
+      this.heatIntensifiesSfx = null;
+      this.coldSnapSfx = null;
+      this.activeHeatCutInState = null;
+      this.comboSfxByKey = {};
+      this.activeComboSfx = null;
+      this.activeColaBurstSound = null;
+      this.turnFreshenCount = 0;
+      this.turnFreshenTypes = new Set();
+      this.turnComboTier = 0;
+      this.turnComboSoundPlayed = false;
+      this.isSlideAnimating = false;
+      this.activeMoveSprites = [];
+      this.swipeStartPoint = null;
 
-    this.customerSprite = null;
-    this.customerBubble = null;
-    this.customerText = null;
+      this.customerSprite = null;
+      this.customerBubble = null;
+      this.customerText = null;
 
     this.iceMeltCause = null;
     this.coffeeBurstsThisInstance = 0;
@@ -956,21 +957,24 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       const source = img.texture.getSourceImage();
       const w = source && source.width ? source.width : 50;
       const h = source && source.height ? source.height : 50;
-      const ratio = Math.min(22 / w, 22 / h);
+      const ratio = Math.min(32 / w, 32 / h);
       img.setScale(ratio);
 
-      this.add.text(cx + 12, cy, amount.toString(), {
+      this.add.text(cx, cy + 26, amount.toString(), {
         fontFamily: "Yoster",
         fontSize: "12px",
         color: "#bcd0e2",
-      }).setOrigin(0, 0.5);
+      }).setOrigin(0.5);
     };
 
-    addThresholdIcon(panelX - 95, 345, "water", 3);
-    addThresholdIcon(panelX - 50, 345, "juice", 4);
-    addThresholdIcon(panelX - 5, 345, "tea", 6);
-    addThresholdIcon(panelX + 40, 345, "cola", 5);
-    addThresholdIcon(panelX + 85, 345, "coffee", 2);
+    // Top row: Cola, Juice
+    addThresholdIcon(panelX - 48, 352, "cola", 5);
+    addThresholdIcon(panelX + 48, 352, "juice", 4);
+
+    // Bottom row: Water, Coffee, Tea
+    addThresholdIcon(panelX - 72, 402, "water", 3);
+    addThresholdIcon(panelX, 402, "coffee", 2);
+    addThresholdIcon(panelX + 72, 402, "tea", 6);
   }
 
   showInfoModal() {
@@ -982,56 +986,189 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     const { width, height } = this.scale;
     const cx = width * 0.5;
     const cy = height * 0.5;
+    const panelW = 760;
+    const panelH = 500;
+    const panelLeft = cx - panelW * 0.5;
+    const panelTop = cy - panelH * 0.5;
+    const contentLeft = panelLeft + 220;
+    const contentW = panelW - 250;
+    const contentCenterX = contentLeft + contentW * 0.5;
 
     this.infoModal = this.add.container(0, 0).setDepth(1000);
 
-    const overlay = this.add.rectangle(cx, cy, width, height, 0x000000, 0.7);
+    const overlay = this.add.rectangle(cx, cy, width, height, 0x000000, 0.72);
     overlay.setInteractive();
 
-    const bg = this.add.rectangle(cx, cy, 600, 480, 0x152532, 1).setStrokeStyle(4, 0x395365, 1);
+    const bg = this.add.rectangle(cx, cy, panelW, panelH, 0x13212d, 1).setStrokeStyle(3, 0x587d93, 1);
+    const titleBand = this.add.rectangle(cx, panelTop + 40, panelW - 24, 62, 0x1a3040, 1).setStrokeStyle(1, 0x355064, 1);
+    const accentBar = this.add.rectangle(cx, panelTop + 14, panelW - 42, 4, 0x7fd7ff, 1);
 
-    const character = this.add.image(cx - 380, cy - 240, "howtoplay").setOrigin(0.5, 0);
+    const characterFrame = this.add
+      .rectangle(panelLeft + 112, cy + 14, 190, 360, 0x10202b, 0.82)
+      .setStrokeStyle(1, 0x355064, 1);
+
+    const character = this.add.image(panelLeft + 112, cy + 10, "howtoplay").setOrigin(0.5, 0.5);
     const source = character.texture.getSourceImage();
     if (source && source.width) {
-      const ratio = Math.min(240 / source.width, 460 / source.height);
+      const ratio = Math.min(160 / source.width, 260 / source.height);
       character.setScale(ratio);
     } else {
-      character.setDisplaySize(240, 460);
+      character.setDisplaySize(160, 260);
     }
 
-    const title = this.add.text(cx, cy - 210, "HOW TO PLAY", {
+    const title = this.add.text(cx, panelTop + 24, "HOW TO PLAY", {
       fontFamily: "Yoster",
-      fontSize: "24px",
-      color: "#ffffff"
+      fontSize: "26px",
+      color: "#f7fbff",
+      stroke: "#000000",
+      strokeThickness: 3,
     }).setOrigin(0.5);
 
-    const content = this.add.text(cx, cy - 175,
-      "GAME MECHANICS:\n" +
-      "- Merge same drinks to charge slots. Full slots burst!\n" +
-      "- Prevent the Ice Core from melting to stay alive.\n" +
-      "- Warning: Coffee is spreading across the grid over time!\n" +
-      "- At 100+ moves, the board has a random chance to shuffle!\n\n" +
-      "EVENTS:\n" +
-      "- Heat Intensifies: Core drains faster, coffee spreads.\n" +
-      "- Cold Snap: Moves cost nothing, but some tiles freeze.\n\n" +
-      "SPRITE POWERS:\n" +
-      "- Water (3): Gives +1 charge to all coffee on the grid.\n" +
-      "- Juice (4): Charges adjacent slots.\n" +
-      "- Tea (6): Converts all tea on board to another drink.\n" +
-      "- Cola (5): Explodes surrounding slots.\n" +
-      "- Coffee (2): Grants Ice Core +1.",
-      {
-        fontFamily: "Yoster",
-        fontSize: "14px",
-        color: "#d4e8f7",
-        align: "left",
-        lineSpacing: 6,
-        wordWrap: { width: 540 }
-      }
-    ).setOrigin(0.5, 0);
+    const subtitle = this.add.text(cx, panelTop + 54, "Swipe on touch. Use arrows on keyboard.", {
+      fontFamily: "Yoster",
+      fontSize: "12px",
+      color: "#9fc2dd",
+    }).setOrigin(0.5);
 
-    const closeBtn = this.add.rectangle(cx, cy + 210, 120, 34, 0x2a4255, 1).setStrokeStyle(2, 0x7fabca, 1);
-    const closeText = this.add.text(cx, cy + 210, "CLOSE", {
+    const tabData = {
+      overview: {
+        label: "OVERVIEW",
+        title: "Goal",
+        body: [
+          "Keep the Ice Core alive while building stronger drink combos.",
+          "Slide the board to merge matching drinks and raise their charge.",
+          "When a drink fills its charge bar, it bursts and triggers a power.",
+          "Every turn matters because moves can drain the core, spawn tiles, and create deadlocks.",
+        ],
+        footer: "Focus on useful merges instead of random slides.",
+      },
+      controls: {
+        label: "CONTROLS",
+        title: "How To Move",
+        body: [
+          "Touch: swipe up, down, left, or right on the board.",
+          "Keyboard: use the arrow keys on laptops and desktops.",
+          "Menus: tap INFO, CLOSE, RESTART, and BACK.",
+          "A swipe only counts if it starts on the board area.",
+        ],
+        footer: "Short swipes are fine as long as the direction is clear.",
+      },
+      drinks: {
+        label: "DRINKS",
+        title: "Special Powers",
+        body: [
+          "Water: helps coffee progress across the board.",
+          "Juice: charges nearby slots.",
+          "Tea: converts all tea tiles into another drink.",
+          "Cola: blasts surrounding tiles and can break deadlocks.",
+          "Coffee: restores Ice Core when it bursts.",
+        ],
+        footer: "The burst threshold is shown next to each drink icon.",
+      },
+      events: {
+        label: "EVENTS",
+        title: "What Changes Mid-Run",
+        body: [
+          "Heat Intensifies: Ice Core drains faster and coffee spreads quicker.",
+          "Cold Snap: movement cost is removed, but some tiles freeze.",
+          "At 100+ moves, the board can shuffle and rearrange itself.",
+          "These events shift the best move, so keep adapting.",
+        ],
+        footer: "A safe move now can be a bad move one turn later.",
+      },
+    };
+
+    const tabButtons = {};
+    const tabKeys = Object.keys(tabData);
+    const tabY = panelTop + 104;
+    const tabStartX = contentLeft + 70;
+    const tabGap = 112;
+
+    const detailTitle = this.add.text(contentCenterX, panelTop + 146, "", {
+      fontFamily: "Yoster",
+      fontSize: "18px",
+      color: "#ffe9b0",
+    }).setOrigin(0.5);
+
+    const detailBody = this.add.text(contentLeft + 16, panelTop + 176, "", {
+      fontFamily: "Yoster",
+      fontSize: "13px",
+      color: "#d9e9f5",
+      align: "left",
+      lineSpacing: 8,
+      wordWrap: { width: contentW - 32 },
+    }).setOrigin(0, 0);
+
+    const detailFooter = this.add.text(contentCenterX, panelTop + 410, "", {
+      fontFamily: "Yoster",
+      fontSize: "12px",
+      color: "#9fc2dd",
+      align: "center",
+      wordWrap: { width: contentW - 40 },
+    }).setOrigin(0.5);
+
+    const quickStats = [
+      { x: panelLeft + 112, y: panelTop + 310, label: "TURN", value: "one swipe" },
+      { x: panelLeft + 112, y: panelTop + 354, label: "BURST", value: "full charge" },
+      { x: panelLeft + 112, y: panelTop + 398, label: "LOSE", value: "Ice Core zero" },
+    ];
+
+    const statElements = [];
+    quickStats.forEach((item) => {
+      const statBg = this.add.rectangle(item.x, item.y, 188, 34, 0x182634, 1).setStrokeStyle(1, 0x355064, 1);
+      const statLabel = this.add.text(item.x - 78, item.y, item.label, {
+        fontFamily: "Yoster",
+        fontSize: "11px",
+        color: "#9fc2dd",
+      }).setOrigin(0, 0.5);
+      const statValue = this.add.text(item.x + 78, item.y, item.value, {
+        fontFamily: "Yoster",
+        fontSize: "11px",
+        color: "#f2f8ff",
+      }).setOrigin(1, 0.5);
+      statElements.push(statBg, statLabel, statValue);
+    });
+
+    const setActiveSection = (key) => {
+      const section = tabData[key];
+      detailTitle.setText(section.title);
+      detailBody.setText(section.body.map((line) => `- ${line}`).join("\n"));
+      detailFooter.setText(section.footer);
+
+      tabKeys.forEach((tabKey) => {
+        const tab = tabButtons[tabKey];
+        const active = tabKey === key;
+        tab.active = active;
+        tab.button.setFillStyle(active ? 0x3a5d76 : 0x223545, 1);
+        tab.button.setStrokeStyle(2, active ? 0x9ee7ff : 0x5f7f95, 1);
+        tab.label.setColor(active ? "#ffffff" : "#b9cfe0");
+      });
+    };
+
+    tabKeys.forEach((key, index) => {
+      const tabX = tabStartX + index * tabGap;
+      const tab = this.add.rectangle(tabX, tabY, 104, 30, 0x223545, 1).setStrokeStyle(2, 0x5f7f95, 1);
+      const tabLabel = this.add.text(tabX, tabY, tabData[key].label, {
+        fontFamily: "Yoster",
+        fontSize: "12px",
+        color: "#b9cfe0",
+      }).setOrigin(0.5);
+
+      tab.setInteractive({ useHandCursor: true });
+      tab.on("pointerover", () => tab.setFillStyle(0x314b5f, 1));
+      tab.on("pointerout", () => {
+        const active = tabButtons[key] && tabButtons[key].active;
+        tab.setFillStyle(active ? 0x3a5d76 : 0x223545, 1);
+      });
+      tab.on("pointerdown", () => setActiveSection(key));
+
+      tabButtons[key] = { button: tab, label: tabLabel, active: false };
+    });
+
+    setActiveSection("overview");
+
+    const closeBtn = this.add.rectangle(cx, panelTop + panelH - 34, 148, 36, 0x2a4255, 1).setStrokeStyle(2, 0x7fabca, 1);
+    const closeText = this.add.text(cx, panelTop + panelH - 34, "CLOSE", {
       fontFamily: "Yoster",
       fontSize: "14px",
       color: "#eaf4ff"
@@ -1044,25 +1181,31 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       this.infoModal.setVisible(false);
     });
 
-    this.infoModal.add([overlay, bg, character, title, content, closeBtn, closeText]);
+    this.infoModal.add([
+      overlay,
+      bg,
+      titleBand,
+      accentBar,
+      characterFrame,
+      character,
+      title,
+      subtitle,
+      detailTitle,
+      detailBody,
+      detailFooter,
+      closeBtn,
+      closeText,
+      ...statElements,
+    ]);
+
+    Object.values(tabButtons).forEach((tab) => {
+      this.infoModal.add([tab.button, tab.label]);
+    });
   }
 
   createControls() {
     const { width } = this.scale;
     const panelX = width * 0.73;
-
-    const dpadMidX = panelX;
-    const dpadLeftX = panelX - 60;
-    const dpadRightX = panelX + 60;
-
-    const dpadTopY = 390;
-    const dpadMidY = 428;
-    const dpadBotY = 466;
-
-    this.createButton(dpadMidX, dpadTopY, "UP", () => this.handleMove("up"), 60, 30);
-    this.createButton(dpadLeftX, dpadMidY, "LEFT", () => this.handleMove("left"), 60, 30);
-    this.createButton(dpadRightX, dpadMidY, "RIGHT", () => this.handleMove("right"), 60, 30);
-    this.createButton(dpadMidX, dpadBotY, "DOWN", () => this.handleMove("down"), 60, 30);
 
     this.createButton(panelX - 65, 505, "RESTART", () => this.scene.restart(), 110, 30);
     this.createButton(panelX + 65, 505, "BACK", () => this.scene.start("MainMenuScene"), 110, 30);
@@ -1159,11 +1302,57 @@ export class OverheatPuzzleScene extends Phaser.Scene {
     this.input.keyboard.on("keydown-LEFT", () => this.handleMove("left"));
     this.input.keyboard.on("keydown-RIGHT", () => this.handleMove("right"));
 
+    this.input.on("pointerdown", (pointer) => {
+      if (this.gameOver || this.isResolving) {
+        this.swipeStartPoint = null;
+        return;
+      }
+
+      const boardRight = this.boardX + this.gridSize * this.cellSize - 8;
+      const boardBottom = this.boardY + this.gridSize * this.cellSize - 8;
+      if (pointer.x < this.boardX || pointer.x > boardRight || pointer.y < this.boardY || pointer.y > boardBottom) {
+        this.swipeStartPoint = null;
+        return;
+      }
+
+      this.swipeStartPoint = {
+        x: pointer.x,
+        y: pointer.y,
+      };
+    });
+
+    this.input.on("pointerup", (pointer) => {
+      if (!this.swipeStartPoint || this.gameOver || this.isResolving) {
+        this.swipeStartPoint = null;
+        return;
+      }
+
+      const deltaX = pointer.x - this.swipeStartPoint.x;
+      const deltaY = pointer.y - this.swipeStartPoint.y;
+      const absX = Math.abs(deltaX);
+      const absY = Math.abs(deltaY);
+      const minSwipeDistance = 28;
+
+      this.swipeStartPoint = null;
+
+      if (Math.max(absX, absY) < minSwipeDistance) {
+        return;
+      }
+
+      if (absX > absY) {
+        this.handleMove(deltaX > 0 ? "right" : "left");
+      } else {
+        this.handleMove(deltaY > 0 ? "down" : "up");
+      }
+    });
+
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.input.keyboard.off("keydown-UP");
       this.input.keyboard.off("keydown-DOWN");
       this.input.keyboard.off("keydown-LEFT");
       this.input.keyboard.off("keydown-RIGHT");
+      this.input.off("pointerdown");
+      this.input.off("pointerup");
 
       if (this.activeHeatCutInState && this.activeHeatCutInState.cleanup) {
         this.activeHeatCutInState.cleanup();
@@ -2477,8 +2666,8 @@ export class OverheatPuzzleScene extends Phaser.Scene {
       beginExit();
     });
 
-    if (!this.registry.get("muteSfx") && this.sys && this.sys.isActive() && this.sound && this.cache.audio.exists("comboColdBreezeSfx")) {
-      if (!this.coldSnapSfx) this.coldSnapSfx = this.sound.add("comboColdBreezeSfx", { volume: 0.9 });
+    if (!this.registry.get("muteSfx") && this.sys && this.sys.isActive() && this.sound && this.cache.audio.exists("coldSnapEventSfx")) {
+      if (!this.coldSnapSfx) this.coldSnapSfx = this.sound.add("coldSnapEventSfx", { volume: 0.9 });
       if (this.coldSnapSfx.isPlaying) this.coldSnapSfx.stop();
       this.coldSnapSfx.setVolume(0.9);
       this.coldSnapSfx.play({ volume: 0.9 });

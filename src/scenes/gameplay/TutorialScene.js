@@ -165,6 +165,7 @@ export class TutorialScene extends Phaser.Scene {
     this.tutorialStartingIceCore = 0;
     this.tutorialFirstBurstSeen = false;
     this.tutorialCoffeeSeen = false;
+    this.tutorialCoffeeUnlocked = false;
     this.tutorialBestMoveFollowed = false;
     this.tutorialComboSeen = false;
     this.tutorialBestDirection = null;
@@ -267,6 +268,7 @@ export class TutorialScene extends Phaser.Scene {
   }
 
   showTutorialLoadingScreen() {
+      // (No changes, preserve current implementation)
     const { width, height } = this.scale;
 
     this.cameras.main.setBackgroundColor("#000000");
@@ -274,11 +276,10 @@ export class TutorialScene extends Phaser.Scene {
     // Start with a solid black screen, then fade it out to reveal the lore scene
     const blackScreen = this.add.rectangle(width * 0.5, height * 0.5, width, height, 0x000000, 1).setDepth(900);
 
-    let loadingStroke = null;
     let loadingSign = null;
     const signX = width * 0.5;
     const signY = height * 0.5;
-    const signSize = 220;
+    const signSize = 210;
 
     if (this.textures.exists("drinkingLoadSheet")) {
       if (!this.anims.exists("tutorialLoadingDrink")) {
@@ -290,29 +291,21 @@ export class TutorialScene extends Phaser.Scene {
         });
       }
 
-      loadingStroke = this.add.sprite(signX, signY, "drinkingLoadSheet", 0).setDepth(901).setAlpha(0.78);
-      loadingStroke.setDisplaySize(signSize + 10, signSize + 10);
-      loadingStroke.setTint(0xffffff);
-      loadingStroke.play("tutorialLoadingDrink");
-
-      loadingSign = this.add.sprite(signX, signY, "drinkingLoadSheet", 0).setDepth(902).setAlpha(0.98);
+      loadingSign = this.add.sprite(signX, signY, "drinkingLoadSheet", 0).setDepth(902).setAlpha(0.9).setTint(0xffffff);
       loadingSign.setDisplaySize(signSize, signSize);
       loadingSign.play("tutorialLoadingDrink");
     } else if (this.textures.exists("drinkingLoad")) {
-      loadingStroke = this.add.image(signX, signY, "drinkingLoad").setDepth(901).setAlpha(0.72).setTint(0xffffff);
-      loadingStroke.setDisplaySize(signSize + 10, signSize + 10);
-
-      loadingSign = this.add.image(signX, signY, "drinkingLoad").setDepth(902).setAlpha(0.98);
+      loadingSign = this.add.image(signX, signY, "drinkingLoad").setDepth(902).setAlpha(0.9).setTint(0xffffff);
       loadingSign.setDisplaySize(signSize, signSize);
     }
 
-    this.loadingOverlayElements = [blackScreen, loadingStroke, loadingSign].filter(Boolean);
+    this.loadingOverlayElements = [blackScreen, loadingSign].filter(Boolean);
 
     if (loadingSign) {
       this.tweens.add({
-        targets: [loadingSign, loadingStroke].filter(Boolean),
-        y: signY - 6,
-        duration: 900,
+        targets: loadingSign,
+        alpha: { from: 0.72, to: 1 },
+        duration: 1000,
         yoyo: true,
         repeat: -1,
         ease: "Sine.easeInOut",
@@ -330,7 +323,7 @@ export class TutorialScene extends Phaser.Scene {
       this.tweens.add({
         targets: this.loadingOverlayElements,
         alpha: 0,
-        duration: 900,
+        duration: 1200,
         ease: "Sine.easeInOut",
         onComplete: () => {
           this.destroyTutorialLoadingOverlay();
@@ -341,6 +334,7 @@ export class TutorialScene extends Phaser.Scene {
   }
 
   destroyTutorialLoadingOverlay() {
+      // (No changes, preserve current implementation)
     this.loadingOverlayElements.forEach((element) => {
       if (element && element.active) {
         element.destroy();
@@ -450,7 +444,7 @@ export class TutorialScene extends Phaser.Scene {
 
     // Step guide text
     this.tutorialGuideText = this.add
-      .text(panelX, 90, "STEP 0: Dialogue Phase", {
+      .text(panelX, 90, "KNOW THE BASICS", {
         fontFamily: "Yoster",
         fontSize: "14px",
         color: "#a8ffd1",
@@ -460,7 +454,7 @@ export class TutorialScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.tutorialGuideSubText = this.add
-      .text(panelX, 128, "Read and continue the story dialogue.", {
+      .text(panelX, 128, "Start with one simple move, watch new tiles spawn each turn, merge matching drinks to build charge, and avoid no-merge moves because they drain Ice Core.", {
         fontFamily: "Yoster",
         fontSize: "11px",
         color: "#9fc2dd",
@@ -472,57 +466,59 @@ export class TutorialScene extends Phaser.Scene {
 
     // Ice Core Display
     this.iceCoreText = this.add
-      .text(panelX, 190, "", {
+      .text(panelX, 228, "", {
         fontFamily: "Yoster",
         fontSize: "18px",
         color: "#d7f3ff",
       })
       .setOrigin(0.5);
 
-    this.iceCoreBar = this.add.rectangle(panelX - 98, 207, 196, 14, 0x79ddff, 1).setOrigin(0, 0.5);
-    this.add.rectangle(panelX, 207, 196, 14, 0x2a3b48, 1).setOrigin(0.5).setDepth(this.iceCoreBar.depth - 1);
+    this.iceCoreBar = this.add.rectangle(panelX - 98, 245, 196, 14, 0x79ddff, 1).setOrigin(0, 0.5);
+    this.add.rectangle(panelX, 245, 196, 14, 0x2a3b48, 1).setOrigin(0.5).setDepth(this.iceCoreBar.depth - 1);
 
-    // Notification log
-    this.tutorialNotificationText = this.add
-      .text(panelX, 230, "", {
-        fontFamily: "Yoster",
-        fontSize: "9px",
-        color: "#7a8ea3",
-        align: "left",
-        wordWrap: { width: 220 },
-        lineSpacing: 2,
-      })
-      .setOrigin(0.5, 0);
+    // Hide notification log text in tutorial side panel (keep data-only notifications).
+    this.tutorialNotificationText = null;
 
     // Burst Thresholds
     this.add
-      .text(panelX, 335, "BURST THRESHOLDS", {
+      .text(panelX, 322, "BURST THRESHOLDS", {
         fontFamily: "Yoster",
         fontSize: "12px",
         color: "#d4e6f4",
       })
       .setOrigin(0.5);
 
+    const iconSize = 32;
     const addThresholdIcon = (cx, cy, type, amount) => {
       const img = this.add.image(cx, cy, this.itemSpriteKeys[type]);
       const source = img.texture.getSourceImage();
       const w = source && source.width ? source.width : 50;
       const h = source && source.height ? source.height : 50;
-      const ratio = Math.min(22 / w, 22 / h);
+      const ratio = Math.min(iconSize / w, iconSize / h);
       img.setScale(ratio);
 
-      this.add.text(cx + 12, cy, amount.toString(), {
+      this.add.text(cx, cy + 26, amount.toString(), {
         fontFamily: "Yoster",
         fontSize: "12px",
         color: "#bcd0e2",
-      }).setOrigin(0, 0.5);
+      }).setOrigin(0.5);
     };
 
-    addThresholdIcon(panelX - 95, 360, "water", 3);
-    addThresholdIcon(panelX - 50, 360, "juice", 4);
-    addThresholdIcon(panelX - 5, 360, "tea", 6);
-    addThresholdIcon(panelX + 40, 360, "cola", 5);
-    addThresholdIcon(panelX + 85, 360, "coffee", 2);
+    // Top row: Cola, Juice
+    addThresholdIcon(panelX - 48, 352, "cola", 5);
+    addThresholdIcon(panelX + 48, 352, "juice", 4);
+
+    // Bottom row: Water, Coffee, Tea
+    addThresholdIcon(panelX - 72, 402, "water", 3);
+    addThresholdIcon(panelX, 402, "coffee", 2);
+    addThresholdIcon(panelX + 72, 402, "tea", 6);
+
+    this.burstThresholdHighlightArea = {
+      x: panelX,
+      y: 382,
+      width: 214,
+      height: 112,
+    };
 
     // Hidden surrogates for score, turn, message
     const hiddenX = -900;
@@ -548,9 +544,11 @@ export class TutorialScene extends Phaser.Scene {
     this.tutorialHighlightElements = [];
     this.tutorialTipElements = [];
     this.tutorialTipActive = false;
+    this.activeTutorialTipMeta = null;
     this.tutorialStartingIceCore = this.iceCore;
     this.tutorialFirstBurstSeen = false;
     this.tutorialCoffeeSeen = false;
+    this.tutorialCoffeeUnlocked = false;
     this.tutorialBestMoveFollowed = false;
     this.tutorialComboSeen = false;
     this.tutorialBestDirection = null;
@@ -562,12 +560,8 @@ export class TutorialScene extends Phaser.Scene {
 
   showInitialTutorialPopups() {
     const tips = [
-      { title: "ICE CORE", body: "This is your Ice Core.\nIt acts as your health bar.\nMoving without merging costs -1 Ice Core!", x: this.scale.width * 0.73, y: 190 },
-      { title: "MERGES", body: "When same drinks collide, they merge!\nThe charge bar fills up.", x: this.scale.width * 0.5, y: this.scale.height * 0.5 },
-      { title: "BURSTS", body: "When the charge bar is full,\nthe drink will burst and activate\na special power called 'Freshen Up!'", x: this.scale.width * 0.73, y: 345 },
-      { title: "DECAY", body: "Watch out! Moving without merging\ncosts -1 Ice Core. If it hits 0, you lose!\nMerge to avoid the penalty.", x: this.scale.width * 0.73, y: 190 },
-      { title: "COFFEE", body: "Coffee spreads every 3 turns!\nBurst it (charge 2) for +1 Ice Core.\nDon't let it take over!", x: this.scale.width * 0.5, y: this.scale.height * 0.5 },
-      { title: "COMBO CHAINS", body: "Multiple bursts in one turn = combo!\nTriggering multiple bursts gives huge points.\nPlan your merges carefully!", x: undefined, y: undefined }
+      { title: "ICE CORE", body: "This is your Ice Core bar.\nIt is your health.\nMoving without merging costs -1 Ice Core.", x: this.scale.width * 0.73, y: 190 },
+      { title: "BURST THRESHOLDS", body: "This is the Burst Threshold capacity for each item.\nMerge items to fulfill their burst skills.", x: this.scale.width * 0.73, y: 382 },
     ];
 
     let currentTipIndex = 0;
@@ -1072,10 +1066,11 @@ export class TutorialScene extends Phaser.Scene {
               if (fadeOut && fadeOut.active) {
                 fadeOut.destroy();
               }
-              this.tutorialInputLocked = false;
-              this.appendTutorialNotification("REINCARNATION COMPLETE. TUTORIAL CONTROLS UNLOCKED.");
-              this.setMessage("TUTORIAL STARTED. MAKE YOUR FIRST MOVE.", "#a8ffd1");
+              this.tutorialInputLocked = true;
+              this.appendTutorialNotification("REINCARNATION COMPLETE. INTRO TUTORIALS BEGIN.");
+              this.setMessage("Learn the basics first: Ice Core, then burst thresholds.", "#a8ffd1");
               this.updateTutorialGuide();
+              this.showInitialTutorialPopups();
             },
           });
         },
@@ -1251,9 +1246,7 @@ export class TutorialScene extends Phaser.Scene {
       this.destroyTutorialDialogue();
       this.tutorialInputLocked = false;
       this.appendTutorialNotification("DIALOGUE COMPLETE. TUTORIAL CONTROLS UNLOCKED.");
-      const openingPrompt = this.tutorialSelectedQuestion === "who"
-        ? "MAVHAL'S BRIEFING IS COMPLETE. SHOW CONTROL WITH YOUR FIRST MOVE."
-        : "PURGATORY BRIEFING IS COMPLETE. FIND YOUR FOOTING WITH YOUR FIRST MOVE.";
+      const openingPrompt = "Try swiping the screen or pressing the D-PAD to slide the items.";
       this.setMessage(openingPrompt, "#a8ffd1");
       this.updateTutorialGuide();
       return;
@@ -1434,17 +1427,23 @@ export class TutorialScene extends Phaser.Scene {
       return;
     }
 
+    if (this.tutorialInputLocked && this.activeTutorialTipMeta) {
+      this.tutorialGuideText.setText(this.activeTutorialTipMeta.title);
+      this.tutorialGuideSubText.setText(this.activeTutorialTipMeta.sub);
+      return;
+    }
+
     const steps = [
-      { title: "STEP 0: Dialogue Phase", sub: "Read and continue the story dialogue." },
-      { title: "STEP 1: First Move", sub: "Use the D-PAD or arrow keys to slide tiles in any direction." },
-      { title: "STEP 2: Board Layout", sub: "Make 2 more moves. Notice: a new tile spawns each turn!" },
-      { title: "STEP 3: First Merge", sub: "Slide same-type drinks into each other to merge them. Watch the charge bar fill!" },
-      { title: "STEP 4: Burst Threshold", sub: "Keep merging until a drink's charge bar is full. It will burst and activate a special power!" },
-      { title: "STEP 5: Ice Core Awareness", sub: "Moving without merging costs -1 Ice Core! Merge to avoid the penalty." },
-      { title: "STEP 6: Coffee Warning", sub: "Coffee spreads over time! Burst it (charge 2) to gain +1 Ice Core." },
-      { title: "STEP 7: Best Move Highlight", sub: "Follow the highlighted arrow — it shows the direction with the most merges!" },
-      { title: "STEP 8: Combo Chains", sub: "Trigger 2+ bursts in one turn for a combo bonus! More types = bigger bonus." },
-      { title: "TUTORIAL COMPLETE!", sub: "You've mastered the basics! Keep practicing or press BACK." },
+      { title: "KNOW THE BASICS", sub: "Start with one simple move, watch new tiles spawn each turn, merge matching drinks to build charge, and avoid no-merge moves because they drain Ice Core." },
+      { title: "KNOW THE BASICS", sub: "Try swiping the screen or pressing the D-PAD to make items slide." },
+      { title: "KNOW THE BASICS", sub: "Make 2 more moves. Notice: a new tile spawns each turn!" },
+      { title: "KNOW THE BASICS", sub: "Slide same-type drinks into each other to merge them. Watch the charge bar fill!" },
+      { title: "KNOW THE BASICS", sub: "Keep merging until a drink's charge bar is full. It will burst and activate a special power!" },
+      { title: "KNOW THE BASICS", sub: "Item passives shape your strategy. Water, Cola, Juice, Tea, and Coffee all behave differently when charged or active." },
+      { title: "KNOW THE BASICS", sub: "Coffee spreads every 3 turns while present. After this tip, coffee can spawn naturally, so control it early." },
+      { title: "KNOW THE BASICS", sub: "Follow the highlighted arrow - it shows the direction with the most merges!" },
+      { title: "KNOW THE BASICS", sub: "Trigger 2+ bursts in one turn for a combo bonus! More types = bigger bonus." },
+      { title: "KNOW THE BASICS", sub: "You've mastered the basics! Keep practicing or press SKIP." },
     ];
 
     if (this.tutorialInputLocked) {
@@ -1470,7 +1469,6 @@ export class TutorialScene extends Phaser.Scene {
     // Step 0 → 1 (First Move → Board Layout)
     if (this.tutorialStepIndex === 0 && this.tutorialStats.moves >= 1) {
       this.tutorialStepIndex = 1;
-      this.showTutorialTip("ICE CORE", "This is your Ice Core.\nIt acts as your health bar.\nMoving without merging costs -1 Ice Core!", this.scale.width * 0.73, 190);
       this.appendTutorialNotification("Step clear: first move detected!");
       this.setMessage("Good! Tiles slide and a new tile spawns. Make 2 more moves.", "#a8ffd1");
       this.updateTutorialGuide();
@@ -1491,9 +1489,8 @@ export class TutorialScene extends Phaser.Scene {
     // Step 2 → 3 (First Merge → Burst Threshold)
     if (this.tutorialStepIndex === 2 && this.tutorialStats.merges >= 1) {
       this.tutorialStepIndex = 3;
-      this.showTutorialTip("BURSTS", "When the charge bar is full,\nthe drink will burst and activate\na special power called 'Freshen Up!'", this.scale.width * 0.73, 345);
       this.appendTutorialNotification("Step clear: first merge confirmed!");
-      this.setMessage("Great merge! Keep merging to fill the charge bar.", "#a8ffd1");
+      this.setMessage("Great merge! The burst threshold guide shows what each item needs.", "#a8ffd1");
       this.updateTutorialGuide();
       this.highlightBestMove();
       return;
@@ -1502,9 +1499,14 @@ export class TutorialScene extends Phaser.Scene {
     // Step 3 → 4 (Burst Threshold → Ice Core Awareness)
     if (this.tutorialStepIndex === 3 && this.tutorialFirstBurstSeen) {
       this.tutorialStepIndex = 4;
-      this.showTutorialTip("DECAY", "Watch out! Moving without merging\ncosts -1 Ice Core. If it hits 0, you lose!\nMerge to avoid the penalty.", this.scale.width * 0.73, 190);
+      this.showTutorialTip(
+        "ITEM PASSIVES",
+        "Every item has a unique passive effect.\nWater supports core sustain, Cola blasts neighbors,\nand Tea reshapes the board for new setups.",
+        this.scale.width * 0.73,
+        322,
+      );
       this.appendTutorialNotification("Step clear: Freshen Up activated!");
-      this.setMessage("You triggered Freshen Up! Watch your Ice Core bar.", "#a8ffd1");
+      this.setMessage("You triggered Freshen Up! Learn each item's passive to plan stronger turns.", "#a8ffd1");
       this.updateTutorialGuide();
       return;
     }
@@ -1512,7 +1514,12 @@ export class TutorialScene extends Phaser.Scene {
     // Step 4 → 5 (Ice Core Awareness → Coffee Warning)
     if (this.tutorialStepIndex === 4 && this.iceCore < this.tutorialStartingIceCore) {
       this.tutorialStepIndex = 5;
-      this.showTutorialTip("COFFEE", "Coffee spreads every 3 turns!\nBurst it (charge 2) for +1 Ice Core.\nDon't let it take over!", this.scale.width * 0.5, this.scale.height * 0.5);
+      this.showTutorialTip(
+        "COFFEE",
+        "Coffee spreads every 3 turns while active.\nBurst it (charge 2) to gain +1 Ice Core.\nCoffee starts spawning only after this tutorial tip.",
+        this.scale.width * 0.5,
+        this.scale.height * 0.5,
+      );
       this.appendTutorialNotification("Step clear: Ice Core decay observed.");
       this.setMessage("Ice Core is melting! Watch out for coffee.", "#ffb8a5");
       this.updateTutorialGuide();
@@ -1579,7 +1586,7 @@ export class TutorialScene extends Phaser.Scene {
         this.tutorialStepIndex = 8;
         this.tutorialGuideComplete = true;
         this.appendTutorialNotification("Tutorial complete! Ready for normal gameplay.");
-        this.setMessage("Tutorial complete. Keep practicing or press BACK.", "#a8ffd1");
+        this.setMessage("Tutorial complete. Keep practicing or press SKIP.", "#a8ffd1");
         this.updateTutorialGuide();
       }
     }
@@ -1756,12 +1763,69 @@ export class TutorialScene extends Phaser.Scene {
     this.tutorialHighlightElements = [];
   }
 
+  getTutorialGuideMetaForTip(title, body) {
+    const normalizedTitle = (title || "").trim().toUpperCase();
+    const guideMetaByTipTitle = {
+      "ICE CORE": {
+        title: "KNOW THE BASICS",
+        sub: "Ice Core is your health pool. Plan moves to create merges often, because sliding without a merge costs 1 Ice Core and can quickly end the run.",
+      },
+      "BURST THRESHOLDS": {
+        title: "KNOW THE BASICS",
+        sub: "Each item type has a burst requirement. Keep merging the same drink to reach its threshold, then trigger the burst at the right moment for board control.",
+      },
+      "MERGES": {
+        title: "KNOW THE BASICS",
+        sub: "Merging identical drinks is the core loop. Every merge strengthens tiles and builds charge toward burst skills that can swing difficult turns.",
+      },
+      "BURSTS": {
+        title: "KNOW THE BASICS",
+        sub: "A full charge triggers a burst skill. Time bursts to clear pressure, recover control, and set up stronger follow-up merges.",
+      },
+      "ITEM PASSIVES": {
+        title: "KNOW THE BASICS",
+        sub: "Item passives define advanced play. Water supports survival, Cola bursts nearby tiles, Juice boosts neighbors, Tea reshapes groups, and Coffee spreads over time.",
+      },
+      "COFFEE": {
+        title: "KNOW THE BASICS",
+        sub: "Coffee spreads every 3 turns while present. It unlocks for spawning after this tutorial tip, and bursting coffee restores +1 Ice Core.",
+      },
+      "COMBO CHAINS": {
+        title: "KNOW THE BASICS",
+        sub: "Chain multiple bursts in one turn to earn combos and momentum. Build the board so one burst feeds into the next instead of spending charge separately.",
+      },
+    };
+
+    if (guideMetaByTipTitle[normalizedTitle]) {
+      return guideMetaByTipTitle[normalizedTitle];
+    }
+
+    return {
+      title: "KNOW THE BASICS",
+      sub: (body || "Follow the active tutorial dialogue to learn the current mechanic.").replace(/\n+/g, " "),
+    };
+  }
+
   // --- Tutorial Tip Popup System ---
 
   showTutorialTip(title, body, pointAtX, pointAtY, onDismiss = null) {
     this.dismissTutorialTip();
 
     const { width, height } = this.scale;
+    const isIceCoreTip = title === "ICE CORE";
+    const isBurstThresholdTip = title === "BURST THRESHOLDS";
+    const isCoffeeTip = title === "COFFEE";
+    this.activeTutorialTipMeta = this.getTutorialGuideMetaForTip(title, body);
+    if (this.tutorialGuideText && this.tutorialGuideSubText && this.activeTutorialTipMeta) {
+      this.tutorialGuideText.setText(this.activeTutorialTipMeta.title);
+      this.tutorialGuideSubText.setText(this.activeTutorialTipMeta.sub);
+      this.tutorialGuideText.setDepth(506);
+      this.tutorialGuideSubText.setDepth(506);
+      this.tutorialGuideText.setColor("#a8ffd1");
+      this.tutorialGuideSubText.setColor("#d4e8f7");
+      this.tutorialGuideText.setAlpha(1);
+      this.tutorialGuideSubText.setAlpha(1);
+    }
     this.tutorialTipActive = true;
     this.tutorialInputLocked = true;
 
@@ -1774,27 +1838,47 @@ export class TutorialScene extends Phaser.Scene {
     let panelX = width * 0.5;
     let panelY = height * 0.5;
 
-    if (pointAtX !== undefined && pointAtY !== undefined) {
-      if (pointAtX < width * 0.5) {
-        panelX = width * 0.65;
-      } else {
-        panelX = width * 0.35;
-      }
+    if (isIceCoreTip && this.iceCoreBar && this.iceCoreBar.active) {
+      pointAtX = this.iceCoreBar.x + this.iceCoreBar.displayWidth * 0.5;
+      pointAtY = this.iceCoreBar.y;
+      panelX = width * 0.38;
+      panelY = height * 0.74;
 
-      const pointerLine = this.add
-        .line(0, 0, panelX, panelY, pointAtX, pointAtY, 0x33ff88, 0.8)
-        .setOrigin(0, 0)
-        .setDepth(499);
-    this.tutorialTipElements.push(pointerLine);
-
-      const pointerDot = this.add
-        .circle(pointAtX, pointAtY, 6, 0x33ff88, 1)
-        .setDepth(500);
-      this.tutorialTipElements.push(pointerDot);
+      const focusRing = this.add
+        .rectangle(pointAtX, pointAtY, 232, 34, 0x000000, 0)
+        .setStrokeStyle(2, 0x33ff88, 1)
+        .setDepth(502);
+      this.tutorialTipElements.push(focusRing);
     }
 
-    const panelW = 420;
-    const panelH = 260;
+    if (isBurstThresholdTip && pointAtX !== undefined && pointAtY !== undefined) {
+      const burstArea = this.burstThresholdHighlightArea;
+      const burstX = burstArea ? burstArea.x : pointAtX;
+      const burstY = burstArea ? burstArea.y : pointAtY;
+      const burstW = burstArea ? burstArea.width : 232;
+      const burstH = burstArea ? burstArea.height : 34;
+      const burstFocusRing = this.add
+        .rectangle(burstX, burstY, burstW, burstH, 0x000000, 0)
+        .setStrokeStyle(2, 0x33ff88, 1)
+        .setDepth(502);
+      this.tutorialTipElements.push(burstFocusRing);
+    }
+
+    if (pointAtX !== undefined && pointAtY !== undefined) {
+      if (!isIceCoreTip && pointAtX < width * 0.5) {
+        panelX = width * 0.65;
+      } else if (!isIceCoreTip) {
+        panelX = width * 0.35;
+      }
+    }
+
+    if (title === "COMBO CHAINS") {
+      panelX = width * 0.34;
+      panelY = height * 0.54;
+    }
+
+    const panelW = title === "COMBO CHAINS" ? 360 : isIceCoreTip ? 430 : 420;
+    const panelH = title === "COMBO CHAINS" ? 240 : isIceCoreTip ? 220 : 260;
     const panel = this.add
       .rectangle(panelX, panelY, panelW, panelH, 0x112433, 0.97)
       .setStrokeStyle(3, 0x33ff88, 1)
@@ -1825,7 +1909,7 @@ export class TutorialScene extends Phaser.Scene {
         color: "#d2e6f7",
         align: "center",
         lineSpacing: 5,
-        wordWrap: { width: panelW - 40 },
+        wordWrap: { width: panelW - 44 },
       })
       .setOrigin(0.5)
       .setDepth(502);
@@ -1855,6 +1939,13 @@ export class TutorialScene extends Phaser.Scene {
     gotItBg.on("pointerout", () => gotItBg.setFillStyle(0x2a4255, 1));
     gotItBg.on("pointerdown", () => {
       this.tutorialInputLocked = false;
+      if (isCoffeeTip) {
+        this.tutorialCoffeeUnlocked = true;
+        this.refillSpawnBag();
+        if (this.spawnOneTile("coffee")) {
+          this.refreshAll();
+        }
+      }
       this.dismissTutorialTip();
       if (onDismiss) {
         onDismiss();
@@ -1889,6 +1980,17 @@ export class TutorialScene extends Phaser.Scene {
   dismissTutorialTip() {
     this.tutorialTipActive = false;
     this.tutorialInputLocked = false;
+    this.activeTutorialTipMeta = null;
+
+    if (this.tutorialGuideText && this.tutorialGuideSubText) {
+      this.tutorialGuideText.setDepth(0);
+      this.tutorialGuideSubText.setDepth(0);
+      this.tutorialGuideText.setColor("#a8ffd1");
+      this.tutorialGuideSubText.setColor("#9fc2dd");
+      this.tutorialGuideText.setAlpha(1);
+      this.tutorialGuideSubText.setAlpha(1);
+    }
+
     this.tutorialTipElements.forEach((el) => {
       if (el && el.active) {
         this.tweens.killTweensOf(el);
@@ -1896,6 +1998,8 @@ export class TutorialScene extends Phaser.Scene {
       }
     });
     this.tutorialTipElements = [];
+
+    this.updateTutorialGuide();
   }
 
   initializeState() {
@@ -2253,7 +2357,7 @@ export class TutorialScene extends Phaser.Scene {
     this.createButton(dpadMidX, dpadBotY, "DOWN", () => this.handleMove("down"), 60, 30);
 
     this.createButton(panelX - 65, 480, "RESTART", () => this.scene.restart(), 110, 30);
-    this.createButton(panelX + 65, 480, "BACK", () => this.scene.start("MainMenuScene"), 110, 30);
+    this.createButton(panelX + 65, 480, "SKIP", () => this.scene.start("MainMenuScene"), 110, 30);
   }
 
   addWireSparks() {
@@ -2780,8 +2884,8 @@ export class TutorialScene extends Phaser.Scene {
         return;
       }
       // During tutorial cinematics/dialogue, ignore panel button input
-      // so full-screen taps only advance the story. The BACK button is an exception.
-      if (this.tutorialMode && this.tutorialInputLocked && label !== "BACK") {
+      // so full-screen taps only advance the story. The BACK/SKIP button is an exception.
+      if (this.tutorialMode && this.tutorialInputLocked && label !== "BACK" && label !== "SKIP") {
         return;
       }
       onClick();
@@ -2948,7 +3052,9 @@ export class TutorialScene extends Phaser.Scene {
       this.refillSpawnBag();
     }
 
-    if (this.hasTypeOnBoard("coffee")) {
+    const shouldBlockCoffeeSpawn = (this.tutorialMode && !this.tutorialCoffeeUnlocked) || this.hasTypeOnBoard("coffee");
+
+    if (shouldBlockCoffeeSpawn) {
       let index = this.spawnBag.findIndex((item) => item !== "coffee");
       if (index === -1) {
         this.refillSpawnBag();
