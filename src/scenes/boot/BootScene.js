@@ -7,6 +7,11 @@ export class BootScene extends Phaser.Scene {
     this.load.image("bgMachine", "public/assets/images/backgrounds/Machine.jpg");
     this.load.image("bgHuman", "public/assets/images/backgrounds/Human.jpg");
     this.load.image("drinkingLoad", "public/assets/images/backgrounds/DrinkingLoad.gif");
+    this.load.spritesheet("drinkingLoadSheet", "public/assets/spritesheets/drinkingLoad_sheet.png", {
+      frameWidth: 512,
+      frameHeight: 288,
+      endFrame: 24,
+    });
     this.load.image("bgVendingMachine", "public/assets/images/backgrounds/VendingMachine.png");
     this.load.image("bgCustomer", "public/assets/images/backgrounds/CustomerBG.png");
     this.load.image("tutorialLoreHall", "public/assets/images/backgrounds/LoreBg.png");

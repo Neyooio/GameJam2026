@@ -168,6 +168,8 @@ export class TutorialScene extends Phaser.Scene {
     this.tutorialBestMoveFollowed = false;
     this.tutorialComboSeen = false;
     this.tutorialBestDirection = null;
+    this.tutorialRumbleLoading = false;
+    this.activeTutorialRumbleSfx = null;
   }
 
   init(data) {
@@ -176,6 +178,8 @@ export class TutorialScene extends Phaser.Scene {
   }
 
   create() {
+    this.ensureTutorialRumbleSfxLoaded();
+
     this.input.on("pointerdown", this.handleGlobalDialogueTap, this);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
@@ -187,6 +191,7 @@ export class TutorialScene extends Phaser.Scene {
         this.tutorialLoadingEvent.remove(false);
         this.tutorialLoadingEvent = null;
       }
+      this.stopTutorialRumbleSfx();
       this.dialogueTapAction = null;
     });
 
@@ -212,6 +217,55 @@ export class TutorialScene extends Phaser.Scene {
     this.dialogueTapAction();
   }
 
+  ensureTutorialRumbleSfxLoaded() {
+    if (this.cache.audio.exists("tutorialRumbleSfx") || this.tutorialRumbleLoading) {
+      return;
+    }
+
+    this.tutorialRumbleLoading = true;
+    this.load.audio("tutorialRumbleSfx", "public/assets/audio/sfx/Rumble.mp3");
+    this.load.once(Phaser.Loader.Events.COMPLETE, () => {
+      this.tutorialRumbleLoading = false;
+    });
+    this.load.start();
+  }
+
+  stopTutorialRumbleSfx() {
+    if (!this.activeTutorialRumbleSfx) {
+      return;
+    }
+
+    if (this.activeTutorialRumbleSfx.isPlaying) {
+      this.activeTutorialRumbleSfx.stop();
+    }
+    this.activeTutorialRumbleSfx.destroy();
+    this.activeTutorialRumbleSfx = null;
+  }
+
+  playTutorialGuardianRumbleCue() {
+    if (this.registry.get("muteSfx") || !this.sys || !this.sys.isActive() || !this.sound) {
+      return;
+    }
+
+    if (!this.cache.audio.exists("tutorialRumbleSfx")) {
+      this.ensureTutorialRumbleSfxLoaded();
+      return;
+    }
+
+    this.stopTutorialRumbleSfx();
+
+    const rumble = this.sound.add("tutorialRumbleSfx", { volume: 0.55 });
+    this.activeTutorialRumbleSfx = rumble;
+    rumble.play({ volume: 0.55, seek: 8 });
+
+    this.time.delayedCall(4000, () => {
+      if (this.activeTutorialRumbleSfx !== rumble) {
+        return;
+      }
+      this.stopTutorialRumbleSfx();
+    });
+  }
+
   showTutorialLoadingScreen() {
     const { width, height } = this.scale;
 
@@ -219,21 +273,70 @@ export class TutorialScene extends Phaser.Scene {
 
     // Start with a solid black screen, then fade it out to reveal the lore scene
     const blackScreen = this.add.rectangle(width * 0.5, height * 0.5, width, height, 0x000000, 1).setDepth(900);
-    this.loadingOverlayElements = [blackScreen];
 
-    // Begin the tutorial gameplay and lore cinematic behind the black screen
-    this.startTutorialGameplay();
+    let loadingStroke = null;
+    let loadingSign = null;
+    const signX = width * 0.5;
+    const signY = height * 0.5;
+    const signSize = 220;
 
-    // Fade the black screen out to reveal the guardian arrival scene
-    this.tweens.add({
-      targets: blackScreen,
-      alpha: 0,
-      duration: 1200,
-      delay: 400,
-      ease: "Sine.easeInOut",
-      onComplete: () => {
-        this.destroyTutorialLoadingOverlay();
-      },
+    if (this.textures.exists("drinkingLoadSheet")) {
+      if (!this.anims.exists("tutorialLoadingDrink")) {
+        this.anims.create({
+          key: "tutorialLoadingDrink",
+          frames: this.anims.generateFrameNumbers("drinkingLoadSheet", { start: 0, end: 24 }),
+          frameRate: 8,
+          repeat: -1,
+        });
+      }
+
+      loadingStroke = this.add.sprite(signX, signY, "drinkingLoadSheet", 0).setDepth(901).setAlpha(0.78);
+      loadingStroke.setDisplaySize(signSize + 10, signSize + 10);
+      loadingStroke.setTint(0xffffff);
+      loadingStroke.play("tutorialLoadingDrink");
+
+      loadingSign = this.add.sprite(signX, signY, "drinkingLoadSheet", 0).setDepth(902).setAlpha(0.98);
+      loadingSign.setDisplaySize(signSize, signSize);
+      loadingSign.play("tutorialLoadingDrink");
+    } else if (this.textures.exists("drinkingLoad")) {
+      loadingStroke = this.add.image(signX, signY, "drinkingLoad").setDepth(901).setAlpha(0.72).setTint(0xffffff);
+      loadingStroke.setDisplaySize(signSize + 10, signSize + 10);
+
+      loadingSign = this.add.image(signX, signY, "drinkingLoad").setDepth(902).setAlpha(0.98);
+      loadingSign.setDisplaySize(signSize, signSize);
+    }
+
+    this.loadingOverlayElements = [blackScreen, loadingStroke, loadingSign].filter(Boolean);
+
+    if (loadingSign) {
+      this.tweens.add({
+        targets: [loadingSign, loadingStroke].filter(Boolean),
+        y: signY - 6,
+        duration: 900,
+        yoyo: true,
+        repeat: -1,
+        ease: "Sine.easeInOut",
+      });
+    }
+
+    if (this.tutorialLoadingEvent) {
+      this.tutorialLoadingEvent.remove(false);
+      this.tutorialLoadingEvent = null;
+    }
+
+    // Keep loading sign visible for 5 seconds, then fade out to reveal the guardian arrival scene.
+    this.tutorialLoadingEvent = this.time.delayedCall(5000, () => {
+      this.tutorialLoadingEvent = null;
+      this.tweens.add({
+        targets: this.loadingOverlayElements,
+        alpha: 0,
+        duration: 900,
+        ease: "Sine.easeInOut",
+        onComplete: () => {
+          this.destroyTutorialLoadingOverlay();
+          this.startTutorialGameplay();
+        },
+      });
     });
   }
 
@@ -650,6 +753,7 @@ export class TutorialScene extends Phaser.Scene {
             ease: "Sine.easeInOut",
             onComplete: () => {
               this.cameras.main.shake(920, 0.0036);
+              this.playTutorialGuardianRumbleCue();
 
               this.tweens.add({
                 targets: quakeFlash,
@@ -892,12 +996,7 @@ export class TutorialScene extends Phaser.Scene {
         text: "You are exactly what you need to be. The light is fading; the transformation begins now.",
       },
       {
-        speaker: "THE TRANSITION",
-        key: "tutorialGuardian",
-        text: "",
-      },
-      {
-        speaker: "NARRATION",
+        speaker: "",
         key: "tutorialGuardian",
         text: "A sudden, paralyzing cold spreads from your feet upward. You try to scream, but your jaw feels heavy, then solid, then completely frozen. You try to look down, but your neck won't turn; you are locked in a rigid, upright gaze.",
       },
@@ -1019,7 +1118,10 @@ export class TutorialScene extends Phaser.Scene {
     const tapZone = this.add.rectangle(width * 0.5, height * 0.5, width, height, 0x000000, 0).setDepth(560);
     tapZone.setInteractive({ useHandCursor: true });
     this.dialogueTapAction = () => this.advanceTutorialDialogue();
-    tapZone.on("pointerdown", (pointer) => {
+    tapZone.on("pointerdown", (pointer, localX, localY, event) => {
+      if (event && typeof event.stopPropagation === "function") {
+        event.stopPropagation();
+      }
       this.advanceTutorialDialogue();
     });
 
@@ -1050,8 +1152,8 @@ export class TutorialScene extends Phaser.Scene {
     const dialogue = this.tutorialDialogueElements[1];
     const tapHint = this.tutorialDialogueElements[2];
 
-    speaker.setText(`• ${line.speaker} •`);
-    dialogue.setText(line.text);
+    speaker.setText(line.speaker ? `• ${String(line.speaker).toUpperCase()} •` : "");
+    dialogue.setText((line.text || "").toUpperCase());
     if (tapHint) {
       tapHint.setText(
         this.tutorialDialogueIndex >= this.tutorialDialogueScript.length - 1
